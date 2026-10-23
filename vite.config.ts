@@ -37,7 +37,12 @@ export default defineConfig(({ mode }) => {
       },
     },
     worker: { format: 'es' },
-    server: { watch: { ignored: ['**/dist/**', '**/dist-single/**', '**/LICENSE', '**/docs/**'] } },
+    // Windows file locks on freshly written build outputs crash chokidar: only watch sources
+    server: {
+      watch: {
+        ignored: (p: string) => /[\\/](dist|dist-single|docs|\.git|coverage)([\\/]|$)/.test(p) || /(\.md|LICENSE|embodiscope\.html|\.log)$/.test(p),
+      },
+    },
     build: {
       outDir: single ? 'dist-single' : 'dist',
       target: 'es2022',
