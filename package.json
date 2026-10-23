@@ -9,11 +9,13 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "build:single": "tsc --noEmit && vite build --mode single",
+    "release": "npm run build:single && node -e \"require('fs').copyFileSync('dist-single/index.html','embodiscope.html')\"",
+    "serve": "node scripts/serve.mjs",
+    "mock-llm": "node scripts/mock-llm.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "scan": "node --experimental-strip-types scripts/scan.ts"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "hyparquet": "^1.17.0",

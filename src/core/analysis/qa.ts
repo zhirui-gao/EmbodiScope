@@ -442,6 +442,42 @@ export const CHECKS: QaCheck[] = [
   },
 ]
 
+CHECKS.push({
+  id: 'action.bandwidth',
+  category: 'signal',
+  needs: 'scan',
+  run: ({ metrics, ds }) => {
+    if (!metrics?.length) return []
+    const fps = ds.fps || 30
+    const ids = [...new Set(metrics.flatMap((m) => Object.keys(m.bandwidth90 ?? {})))]
+    const rows = ids
+      .map((id) => ({ id, hz: median(metrics.map((m) => m.bandwidth90?.[id]).filter((x): x is number => Number.isFinite(x))) }))
+      .filter((r) => Number.isFinite(r.hz))
+    if (!rows.length) return []
+    const worst = median(rows.map((r) => r.hz))
+    const factor = Math.max(1, Math.floor(fps / (2.5 * worst)))
+    return [
+      {
+        check: 'action.bandwidth',
+        severity: 'info',
+        category: 'signal',
+        title: l(`Motion bandwidth: 90 % of action energy below ${fmt(worst, 2)} Hz`, `运动带宽：90% 的动作能量低于 ${fmt(worst, 2)} Hz`),
+        detail: l(
+          rows.map((r) => `${r.id}: ${fmt(r.hz, 2)} Hz`).join(', ') + ` (dataset ${fps} fps).`,
+          rows.map((r) => `${r.id}：${fmt(r.hz, 2)} Hz`).join('，') + `（数据集 ${fps} fps）。`,
+        ),
+        hint:
+          factor > 1
+            ? l(
+                `Control at ≥ ${fmt(2.5 * worst, 1)} Hz preserves the motion; temporal subsampling by up to ${factor}× (→ ${fmt(fps / factor, 1)} fps) loses little, and a 1 s action chunk spans ${Math.round(fps)} raw steps.`,
+                `以 ≥ ${fmt(2.5 * worst, 1)} Hz 控制即可保留运动信息；最多可做 ${factor} 倍时间降采样（→ ${fmt(fps / factor, 1)} fps）而损失很小，1 秒的 action chunk 对应 ${Math.round(fps)} 个原始步。`,
+              )
+            : l('Motion content is close to the sampling rate; avoid temporal subsampling.', '运动频率接近采样率，不建议做时间降采样。'),
+      },
+    ]
+  },
+})
+
 export function runChecks(ctx: QaContext): Issue[] {
   const out: Issue[] = []
   for (const c of CHECKS) {

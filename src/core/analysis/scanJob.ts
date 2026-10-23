@@ -55,7 +55,7 @@ export async function runScanJob(job: ScanJob, cfg: ScanConfig): Promise<Episode
 function emptyMetrics(episode: number): EpisodeMetrics {
   return {
     episode, length: 0, duration: 0, dtMean: NaN, dtStd: NaN, maxGapFrames: 0, nonMonotonic: 0, irregularSteps: 0, startTimestamp: 0, frameIndexOk: true,
-    nanCount: 0, nanFeatures: [], constantDims: 0, idleHead: 0, idleTail: 0, idleRatio: 0, motion: 0, maxJumpRatio: {}, jerkiness: {}, pathLength: {},
+    nanCount: 0, nanFeatures: [], constantDims: 0, idleHead: 0, idleTail: 0, idleRatio: 0, motion: 0, maxJumpRatio: {}, jerkiness: {}, bandwidth90: {}, pathLength: {},
     quatNormErr: 0, quatSignFlips: 0, eulerWraps: 0, gripperEvents: 0, actionLag: {}, workspace: {},
   }
 }

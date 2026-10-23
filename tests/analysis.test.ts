@@ -10,6 +10,18 @@ import { heuristicSegments } from '../src/core/analysis/segmentation'
 import { probeMp4 } from '../src/core/video/mp4'
 import { matToQuat, quatToMat, rotationAngle, toMatrix, eulerToMat } from '../src/core/math/rotation'
 import { localDatasetRoots } from './localDatasets'
+import { addPowerSpectrum, energyQuantileHz, nextPow2 } from '../src/core/math/spectrum'
+
+describe('spectrum', () => {
+  it('finds the bandwidth of a pure sine', () => {
+    const fps = 30
+    const x = Array.from({ length: 300 }, (_, t) => Math.sin((2 * Math.PI * 2 * t) / fps))
+    const power = new Float64Array(nextPow2(300) / 2)
+    expect(addPowerSpectrum(x, power)).toBe(true)
+    expect(energyQuantileHz(power, fps, 0.9)).toBeGreaterThan(1.5)
+    expect(energyQuantileHz(power, fps, 0.9)).toBeLessThan(3)
+  })
+})
 
 describe('rotation math', () => {
   it('round-trips quaternions', () => {

@@ -110,6 +110,7 @@ export function QualityView({ entry }: { entry: DatasetEntry }) {
         jump: Math.max(0, ...Object.values(m.maxJumpRatio)),
         path: Object.values(m.pathLength).reduce((a, b) => a + b, 0),
         lag: Object.values(m.actionLag)[0]?.lag ?? NaN,
+        bw: ((v: number[]) => (v.length ? Math.max(...v) : NaN))(Object.values(m.bandwidth90 ?? {}).filter(Number.isFinite)),
       })),
     [metrics],
   )
@@ -200,6 +201,7 @@ export function QualityView({ entry }: { entry: DatasetEntry }) {
                   {th('path', L('path (m)', '路径(m)'))}
                   {th('gripperEvents', L('grip events', '夹爪开合'))}
                   {th('lag', L('act lag', '动作延迟'))}
+                  {th('bw', L('bw90 (Hz)', '带宽90(Hz)'))}
                   {th('nanCount', 'NaN')}
                   {th('constantDims', L('const dims', '常量维'))}
                 </tr>
@@ -219,6 +221,7 @@ export function QualityView({ entry }: { entry: DatasetEntry }) {
                     <td>{fmtNum(m.path, 2)}</td>
                     <td>{m.gripperEvents}</td>
                     <td>{Number.isFinite(m.lag) ? m.lag : '—'}</td>
+                    <td>{fmtNum(m.bw, 2)}</td>
                     <td style={{ color: m.nanCount ? 'var(--err)' : undefined }}>{m.nanCount}</td>
                     <td>{m.constantDims}</td>
                   </tr>

@@ -3,6 +3,7 @@ import type { LeRobotDataset } from '../lerobot/types'
 import { quantile, sortedFinite } from '../math/stats'
 import type { DatasetSemantics } from '../semantics/types'
 import { gripperSignal, poseTrack, segmentMatrix } from './poses'
+import { addPowerSpectrum, energyQuantileHz, nextPow2 } from '../math/spectrum'
 
 /** JSON-serialisable per-episode metrics (computed in workers during a dataset scan). */
 export interface EpisodeMetrics {
@@ -31,6 +32,8 @@ export interface EpisodeMetrics {
   maxJumpRatio: Record<string, number>
   /** per action segment: mean |Δ²| / mean |Δ| (higher = jerkier) */
   jerkiness: Record<string, number>
+  /** per action segment: frequency (Hz) below which 90 % of the motion energy lies */
+  bandwidth90: Record<string, number>
   /** EEF path length in metres per pose segment */
   pathLength: Record<string, number>
   quatNormErr: number
@@ -75,6 +78,7 @@ export function computeEpisodeMetrics(ds: Pick<LeRobotDataset, 'fps' | 'stats'>,
     motion: 0,
     maxJumpRatio: {},
     jerkiness: {},
+    bandwidth90: {},
     pathLength: {},
     quatNormErr: 0,
     quatSignFlips: 0,
@@ -207,6 +211,17 @@ export function computeEpisodeMetrics(ds: Pick<LeRobotDataset, 'fps' | 'stats'>,
     const max = sorted[sorted.length - 1] ?? 0
     m.maxJumpRatio[s.id] = p99 > 1e-9 ? max / p99 : 0
     m.jerkiness[s.id] = d1 > 1e-9 ? d2 / d1 : 0
+    // motion bandwidth from the velocity spectrum (first differences), only for segments that actually move
+    if (T >= 32 && s.actionType !== 'velocity' && s.role !== 'gripper' && d1 / (T - 1) > 1e-3) {
+      const power = new Float64Array(nextPow2(T - 1) / 2)
+      let used = 0
+      for (let d = 0; d < mat.n; d++) {
+        const sd = st?.std?.[s.start + d] || 1
+        const vel = Float64Array.from({ length: T - 1 }, (_, t) => (mat.data[(t + 1) * mat.n + d] - mat.data[t * mat.n + d]) / sd)
+        if (addPowerSpectrum(vel, power)) used++
+      }
+      if (used) m.bandwidth90[s.id] = energyQuantileHz(power, fps, 0.9)
+    }
   }
 
   // ---- poses: path length, quaternion health, workspace samples
