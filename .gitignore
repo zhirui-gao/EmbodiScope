@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-single/
+*.log
+.DS_Store
+.vite/
+coverage/
+tests/.local-datasets.json
