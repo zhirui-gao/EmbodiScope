@@ -8,6 +8,7 @@ import { selectEpisode } from '@app/actions'
 import { buildSceneModel } from '../scene/model'
 import { Scene3D } from '../scene/Scene3D'
 import { VideoTile } from '../episode/VideoTile'
+import { ImageTile } from '../episode/ImageTile'
 import { Timeline, Transport, useCurrentSegments } from '../episode/Timeline'
 import { buildTracks } from '../episode/tracks'
 import { buildChartGroups } from '../episode/charts'
@@ -62,7 +63,8 @@ export function EpisodeView({ entry }: { entry: DatasetEntry }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [showInspector, setShowInspector] = useState(false)
   const current = useCurrentSegments(tracks)
-  const cams = entry.sem.cameras.filter((c) => !c.isDepth || entry.ds.features.find((f) => f.key === c.key)?.isVideo)
+  const isVideo = (key: string) => Boolean(entry.ds.features.find((f) => f.key === key)?.isVideo)
+  const cams = entry.sem.cameras
   const has3d = Boolean(model && (model.tracks.length || model.skeleton))
   const chartsPerRow = useStore((s) => s.settings.chartsPerRow)
 
@@ -108,9 +110,13 @@ export function EpisodeView({ entry }: { entry: DatasetEntry }) {
         <div className="col" style={{ minWidth: 0 }}>
           {cams.length > 0 ? (
             <div className={`video-grid ${cams.length > 2 ? 'many' : ''}`} style={{ gridTemplateColumns: `repeat(${camCols}, minmax(0, 1fr))` }}>
-              {cams.map((c) => (
-                <VideoTile key={`${ep.index}-${c.key}`} entry={entry} ep={ep} cam={c} model={model} />
-              ))}
+              {cams.map((c) =>
+                isVideo(c.key) ? (
+                  <VideoTile key={`${ep.index}-${c.key}`} entry={entry} ep={ep} cam={c} model={model} />
+                ) : (
+                  <ImageTile key={`${ep.index}-${c.key}`} entry={entry} ep={ep} cam={c} />
+                ),
+              )}
             </div>
           ) : (
             <div className="panel panel-body muted">{L('This dataset has no video streams.', '该数据集没有视频流。')}</div>

@@ -11,6 +11,7 @@ import type { DatasetSemantics, Role, Segment } from '@core/semantics/types'
 import { matchingProfiles } from '@core/semantics/profiles'
 import { Badge, Panel } from '../common'
 import { runFormatAnalysis } from './AiView'
+import { DimStats } from './DimStats'
 
 const ROLES = Object.keys(ROLE_LABEL) as Role[]
 
@@ -268,6 +269,10 @@ export function SchemaView({ entry }: { entry: DatasetEntry }) {
           </table>
         </Panel>
       </div>
+
+      <Panel title={L('Per-dimension statistics', '逐维统计')} className="">
+        <DimStats entry={entry} />
+      </Panel>
 
       {fa && (
         <Panel

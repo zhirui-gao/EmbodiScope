@@ -169,6 +169,21 @@ export function computeEpisodeMetrics(ds: Pick<LeRobotDataset, 'fps' | 'stats'>,
   for (const s of sem.segments.filter((x) => ACTION_STREAMS.has(x.stream) && x.end > x.start && x.role !== 'label')) {
     const mat = segmentMatrix(table, s)
     if (!mat) continue
+    // q and -q are the same rotation, and euler angles wrap at ±π: make both continuous so they do not count as spikes
+    const rot = s.pose?.rot
+    if (rot?.repr.startsWith('quat')) {
+      for (let t = 1; t < T; t++) {
+        let dot = 0
+        for (const i of rot.idx) dot += mat.data[t * mat.n + i] * mat.data[(t - 1) * mat.n + i]
+        if (dot < 0) for (const i of rot.idx) mat.data[t * mat.n + i] = -mat.data[t * mat.n + i]
+      }
+    } else if (rot && (rot.repr.startsWith('euler') || rot.repr === 'rotvec')) {
+      for (let t = 1; t < T; t++)
+        for (const i of rot.idx) {
+          const d = mat.data[t * mat.n + i] - mat.data[(t - 1) * mat.n + i]
+          if (Math.abs(d) > Math.PI) mat.data[t * mat.n + i] -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI
+        }
+    }
     const st = ds.stats?.[s.feature]
     const steps: number[] = []
     let d1 = 0, d2 = 0

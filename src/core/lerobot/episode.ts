@@ -44,6 +44,7 @@ export async function loadEpisode(ds: LeRobotDataset, ep: EpisodeInfo, opts: Epi
 /** Load binary column values (e.g. depth PNG bytes) for a frame range on demand. */
 export async function loadBinaryColumn(ds: LeRobotDataset, ep: EpisodeInfo, column: string, frameStart: number, frameEnd: number) {
   const buf = await ds.source.asyncBuffer(ep.dataPath)
-  const { columns } = await readColumns(buf, { columns: [column], rowStart: ep.rowStart + frameStart, rowEnd: ep.rowStart + frameEnd })
-  return (columns[column] ?? []) as any[]
+  const { columns } = await readColumns(buf, { columns: [column], rowStart: ep.rowStart + frameStart, rowEnd: ep.rowStart + frameEnd, utf8: false })
+  // LeRobot image features are structs {bytes, path}; return the encoded bytes per frame
+  return ((columns[column] ?? []) as any[]).map((v) => (v instanceof Uint8Array ? v : v?.bytes instanceof Uint8Array ? v.bytes : null))
 }

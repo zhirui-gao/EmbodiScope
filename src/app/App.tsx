@@ -11,6 +11,7 @@ import { SchemaView } from '@ui/views/SchemaView'
 import { QualityView } from '@ui/views/QualityView'
 import { CompareView } from '@ui/views/CompareView'
 import { AiView } from '@ui/views/AiView'
+import { ErrorBoundary } from '@ui/common'
 import { sourceFromDrop } from '@core/io/browserSources'
 import { HfHubSource, ServerSource } from '@core/io/httpSource'
 import { openSource } from './actions'
@@ -86,14 +87,14 @@ export function App() {
               ))}
             </div>
             {entry || tab === 'compare' || tab === 'ai' ? (
-              <>
+              <ErrorBoundary resetKey={`${tab}:${entry?.id}`}>
                 {tab === 'overview' && entry && <OverviewView entry={entry} />}
                 {tab === 'episode' && entry && <EpisodeView entry={entry} />}
                 {tab === 'schema' && entry && <SchemaView entry={entry} />}
                 {tab === 'quality' && entry && <QualityView entry={entry} />}
                 {tab === 'compare' && <CompareView />}
                 {tab === 'ai' && <AiView entry={entry} />}
-              </>
+              </ErrorBoundary>
             ) : (
               <div className="view muted">{L('Loading datasets …', '正在加载数据集 …')}</div>
             )}

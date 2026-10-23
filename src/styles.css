@@ -74,6 +74,7 @@ input[type='range'] { padding: 0; accent-color: var(--accent); }
 .view.tight { padding: 10px; }
 
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.view > .panel + .panel, .view > .grid + .panel, .view > .panel + .grid { margin-top: 12px; }
 .panel-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); min-height: 38px; }
 .panel-head h3 { flex: 1; }
 .panel-body { padding: 12px; }

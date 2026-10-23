@@ -1,5 +1,34 @@
 import type { ReactNode } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { Component, useEffect, useMemo, useState } from 'react'
+
+/** Keeps one broken view from blanking the whole app; shows the error and a retry button. */
+export class ErrorBoundary extends Component<{ children: ReactNode; resetKey?: unknown }, { error: Error | null }> {
+  state = { error: null as Error | null }
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+  componentDidUpdate(prev: { resetKey?: unknown }) {
+    if (prev.resetKey !== this.props.resetKey && this.state.error) this.setState({ error: null })
+  }
+  render() {
+    if (!this.state.error) return this.props.children
+    return (
+      <div className="view">
+        <div className="issue error">
+          <b>View crashed / 页面出错</b>
+          <div className="pre" style={{ marginTop: 6 }}>
+            {this.state.error.message}
+            {'\n'}
+            {this.state.error.stack?.split('\n').slice(1, 6).join('\n')}
+          </div>
+          <button style={{ marginTop: 8 }} onClick={() => this.setState({ error: null })}>
+            Retry / 重试
+          </button>
+        </div>
+      </div>
+    )
+  }
+}
 
 export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   useEffect(() => {

@@ -38,6 +38,8 @@ export async function runFormatAnalysis(entry: DatasetEntry) {
   }
 }
 
+const NO_ANNOTATIONS: Record<number, EpisodeAnnotation> = {}
+
 function cues(entry: DatasetEntry, table: Parameters<typeof heuristicSegments>[0]): string {
   const segs = heuristicSegments(table, entry.sem, entry.ds.fps || 30)
   return segs.length > 1 ? segs.map((s) => `[${s.start}-${s.end}) ${s.text}`).join('; ') : ''
@@ -48,7 +50,7 @@ export function AiView({ entry }: { entry?: DatasetEntry }) {
   const lang = useStore((s) => s.lang)
   const settings = useStore((s) => s.settings)
   const updateSettings = useStore((s) => s.updateSettings)
-  const annotations = useStore((s) => (entry ? s.annotations[entry.id] ?? {} : {}))
+  const annotations = useStore((s) => (entry ? s.annotations[entry.id] : undefined)) ?? NO_ANNOTATIONS
   const setAnnotation = useStore((s) => s.setAnnotation)
   const episodeIndex = useStore((s) => s.episodeIndex)
   const llm = settings.llm

@@ -52,7 +52,7 @@ export type RawColumn = any[] | ArrayLike<any>
  */
 export async function readColumns(
   file: AsyncBuffer,
-  opts: { columns?: string[]; rowStart?: number; rowEnd?: number } = {},
+  opts: { columns?: string[]; rowStart?: number; rowEnd?: number; utf8?: boolean } = {},
 ): Promise<{ numRows: number; columns: Record<string, RawColumn> }> {
   const metadata = await parquetMeta(file)
   const total = Number(metadata.num_rows)
@@ -68,6 +68,7 @@ export async function readColumns(
     rowStart,
     rowEnd,
     compressors,
+    utf8: opts.utf8,
     onChunk(chunk) {
       let arr = out[chunk.columnName]
       if (!arr) arr = out[chunk.columnName] = new Array(n)
