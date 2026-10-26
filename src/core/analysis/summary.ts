@@ -106,7 +106,8 @@ export function composition(sem: DatasetSemantics, stream: 'observation' | 'acti
   const segs = sem.segments.filter((s) => s.stream === stream && s.end > s.start && ROLE_SHORT[s.role])
   const parts = new Map<string, number>()
   for (const s of segs) {
-    const k = `${s.side ? s.side[0].toUpperCase() + '·' : ''}${ROLE_SHORT[s.role]}`
+    const short = s.role === 'joint_position' && /leg/.test(s.entity ?? '') ? 'leg' : ROLE_SHORT[s.role]
+    const k = `${s.side ? s.side[0].toUpperCase() + '·' : ''}${short}`
     parts.set(k, (parts.get(k) ?? 0) + (s.end - s.start))
   }
   const dim = segs.reduce((a, s) => a + s.end - s.start, 0)

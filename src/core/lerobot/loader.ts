@@ -336,6 +336,8 @@ async function loadV3(
     }
   }
   rows.sort((a, b) => toNumber(a.episode_index) - toNumber(b.episode_index))
+  if (rows.length && !('tasks' in rows[0]) && tasks.length)
+    warnings.push('meta/episodes has no "tasks" column — instructions are resolved per frame from task_index (filled in when episodes are loaded or scanned)')
 
   // first global index of each data file -> row offset inside the file
   const fileStart = new Map<string, number>()
@@ -433,7 +435,24 @@ export function aggregateStats(per: Record<string, FeatureStats>[]): Record<stri
 
 // ---------------------------------------------------------------- sidecar metadata
 
+export function parseModality(raw: any): DatasetExtras['modality'] {
+  const groups = (section: any, defaultKey: string) =>
+    Object.entries(section ?? {})
+      .map(([name, g]: [string, any]) => ({
+        name,
+        key: String(g?.original_key ?? defaultKey),
+        start: Number(g?.start),
+        end: Number(g?.end),
+        absolute: typeof g?.absolute === 'boolean' ? g.absolute : undefined,
+        rotationType: g?.rotation_type ? String(g.rotation_type) : undefined,
+      }))
+      .filter((g) => Number.isFinite(g.start) && Number.isFinite(g.end) && g.end > g.start)
+      .sort((a, b) => a.start - b.start)
+  return { state: groups(raw?.state, 'observation.state'), action: groups(raw?.action, 'action'), raw }
+}
+
 const STANDARD_META = new Set([
+  'meta/modality.json',
   'meta/info.json',
   'meta/episodes.jsonl',
   'meta/tasks.jsonl',
@@ -444,6 +463,15 @@ const STANDARD_META = new Set([
 
 async function loadExtras(source: FileSource, listing: string[] | null): Promise<DatasetExtras> {
   const extras: DatasetExtras = { vocabularies: [], documents: [], sidecarFiles: [] }
+  const modalityText = await tryText(source, 'meta/modality.json')
+  if (modalityText) {
+    try {
+      extras.modality = parseModality(JSON.parse(modalityText))
+      extras.documents.push({ path: 'meta/modality.json', text: modalityText })
+    } catch {
+      // malformed modality.json is shown as a warning-free omission
+    }
+  }
   if (!listing) return extras
   for (const f of listing) {
     if (/^(data|videos|images)\//.test(f) || STANDARD_META.has(f) || f.startsWith('meta/episodes/')) continue

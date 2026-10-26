@@ -65,8 +65,20 @@ export interface LabelVocabulary {
   labels: Map<number, string>
 }
 
+/** GR00T-style meta/modality.json: named slices of state / action vectors. */
+export interface ModalityGroup {
+  name: string
+  /** feature key holding the slice */
+  key: string
+  start: number
+  end: number
+  absolute?: boolean
+  rotationType?: string
+}
+
 export interface DatasetExtras {
   vocabularies: LabelVocabulary[]
+  modality?: { state: ModalityGroup[]; action: ModalityGroup[]; raw: unknown }
   /** free-form metadata files found next to meta/ (info.yaml, README.md, conversion reports …) */
   documents: { path: string; text: string }[]
   /** files at dataset root that are not part of the standard layout */

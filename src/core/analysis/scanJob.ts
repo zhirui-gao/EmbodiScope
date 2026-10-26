@@ -25,7 +25,7 @@ export interface ScanConfig {
 }
 
 export function scanColumns(sem: DatasetSemantics): string[] {
-  const cols = new Set(['timestamp', 'frame_index'])
+  const cols = new Set(['timestamp', 'frame_index', 'task_index'])
   for (const s of sem.segments) {
     if (s.end <= s.start) continue
     if (s.role === 'label' || s.role === 'index' || s.role === 'camera_intrinsics' || s.role === 'camera_distortion' || s.role === 'confidence') continue

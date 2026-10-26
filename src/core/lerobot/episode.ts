@@ -38,7 +38,17 @@ export async function loadEpisode(ds: LeRobotDataset, ep: EpisodeInfo, opts: Epi
   const { numRows, columns: cols } = await readColumns(buf, { columns, rowStart, rowEnd })
   const table = FrameTable.fromColumns(numRows, cols)
   if (!ep.length) ep.length = numRows
+  if (!ep.tasks.length) ep.tasks = tasksFromFrames(ds, table)
   return { info: ep, table, deferredColumns: deferred, loadMs: performance.now() - t0 }
+}
+
+/** Instructions of an episode from its per-frame task_index (for metadata without a "tasks" column). */
+export function tasksFromFrames(ds: Pick<LeRobotDataset, 'tasks'>, table: FrameTable): string[] {
+  const col = table.get('task_index')
+  if (!col || !ds.tasks.length) return []
+  const seen = new Set<number>()
+  for (let t = 0; t < table.length; t++) seen.add(col.data[t * col.dim])
+  return [...seen].map((i) => ds.tasks.find((x) => x.index === i)?.text).filter((x): x is string => Boolean(x))
 }
 
 /** Load binary column values (e.g. depth PNG bytes) for a frame range on demand. */

@@ -9,6 +9,11 @@ import { buildSceneModel } from '../scene/model'
 import { Scene3D } from '../scene/Scene3D'
 import { VideoTile } from '../episode/VideoTile'
 import { ImageTile } from '../episode/ImageTile'
+import { FlagBar } from '../episode/FlagBar'
+import { takePendingFrame } from '@app/deeplink'
+import { AnnotationEditor } from '../episode/AnnotationEditor'
+import { RobotPanel } from '../episode/RobotPanel'
+import { useRobot } from '@app/robotModel'
 import { Timeline, Transport, useCurrentSegments } from '../episode/Timeline'
 import { buildTracks } from '../episode/tracks'
 import { buildChartGroups } from '../episode/charts'
@@ -32,7 +37,10 @@ export function EpisodeView({ entry }: { entry: DatasetEntry }) {
   const fps = entry.ds.fps || 30
 
   useEffect(() => {
-    if (table) playback.reset(table.length, fps)
+    if (!table || !ep) return
+    playback.reset(table.length, fps)
+    const f = takePendingFrame(entry.id, ep.index)
+    if (f != null) playback.seek(f)
   }, [table, fps])
 
   // keyboard shortcuts
@@ -57,7 +65,8 @@ export function EpisodeView({ entry }: { entry: DatasetEntry }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [episodeIndex, available])
 
-  const model = useMemo(() => (table ? buildSceneModel(entry, table) : null), [table, entry.version])
+  const robot = useRobot(entry)
+  const model = useMemo(() => (table ? buildSceneModel(entry, table, robot) : null), [table, entry.version, robot, robot?.map])
   const tracks = useMemo(() => (table && ep ? buildTracks(entry, ep.index, table, annotation) : []), [table, ep, annotation, entry.version])
   const groups = useMemo(() => (table ? buildChartGroups(entry.sem, table) : []), [table, entry.version])
   const [hidden, setHidden] = useState<Set<string>>(new Set())
@@ -65,7 +74,8 @@ export function EpisodeView({ entry }: { entry: DatasetEntry }) {
   const current = useCurrentSegments(tracks)
   const isVideo = (key: string) => Boolean(entry.ds.features.find((f) => f.key === key)?.isVideo)
   const cams = entry.sem.cameras
-  const has3d = Boolean(model && (model.tracks.length || model.skeleton))
+  const has3d = Boolean(model && (model.tracks.length || model.skeleton || model.robot))
+  const jointOnly = entry.sem.segments.some((s) => s.role === 'joint_position' && s.stream === 'observation')
   const chartsPerRow = useStore((s) => s.settings.chartsPerRow)
 
   if (!available.length) return <div className="view muted">{L('No episode data files are present in this copy of the dataset.', '该数据集副本中没有任何 episode 数据文件。')}</div>
@@ -91,12 +101,18 @@ export function EpisodeView({ entry }: { entry: DatasetEntry }) {
         <span className="grow ellipsis" title={ep.tasks.join('\n')} style={{ fontSize: 13 }}>
           💬 {ep.tasks.join(' · ') || <span className="faint">{L('(no instruction)', '（无指令）')}</span>}
         </span>
+        <FlagBar datasetId={entry.id} episode={ep.index} />
         <label className="row small muted nowrap">
           <input type="checkbox" checked={showOverlay} onChange={(e) => updateSettings((s) => ({ ...s, showOverlay: e.target.checked }))} />
           {L('projection overlay', '投影叠加')}
         </label>
         <span className="faint tiny nowrap">{Math.round(data.loadMs)} ms</span>
       </div>
+      {jointOnly && (
+        <div style={{ marginBottom: 6 }}>
+          <RobotPanel entry={entry} />
+        </div>
+      )}
       {current.length > 0 && (
         <div className="row wrap" style={{ marginBottom: 6 }}>
           {current.map((c) => (
@@ -133,6 +149,7 @@ export function EpisodeView({ entry }: { entry: DatasetEntry }) {
       </div>
       <Panel title={L('Timeline', '时间轴')} className="" bodyStyle={{ padding: '6px 10px' }}>
         <Timeline tracks={tracks} length={table.length} />
+        <AnnotationEditor entry={entry} episode={ep.index} table={table} />
       </Panel>
       <div className="section-title">
         <h3>{L('Signals', '信号曲线')}</h3>

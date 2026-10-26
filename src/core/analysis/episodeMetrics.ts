@@ -44,6 +44,8 @@ export interface EpisodeMetrics {
   actionLag: Record<string, { lag: number; errAtLag: number; errAt0: number; identical: boolean }>
   /** subsampled EEF positions (m) for workspace plots, per pose segment id */
   workspace: Record<string, number[]>
+  /** distinct task_index values used by the episode's frames */
+  taskIndices?: number[]
   error?: string
 }
 
@@ -87,6 +89,8 @@ export function computeEpisodeMetrics(ds: Pick<LeRobotDataset, 'fps' | 'stats'>,
     actionLag: {},
     workspace: {},
   }
+  const ti = table.get('task_index')
+  if (ti) m.taskIndices = [...new Set(Array.from({ length: T }, (_, t) => ti.data[t * ti.dim]))].filter(Number.isFinite)
   if (T < 2) return m
 
   // ---- timing
@@ -291,6 +295,8 @@ export function computeEpisodeMetrics(ds: Pick<LeRobotDataset, 'fps' | 'stats'>,
       return [lo, Math.max(hi - lo, 1e-6)]
     }
     const span = new Array(n).fill(0).map((_, d) => range(O.data, d)[1])
+    // two constant signals (unused legs, fixed waist …) are trivially "equal": nothing to align
+    if (span.every((s) => s <= 1e-6)) continue
     // commands and measurements in different units (gripper openness 0..1 vs width in m): compare min-max normalised signals
     for (let d = 0; d < n; d++) {
       const [alo, aspan] = range(A.data, d)

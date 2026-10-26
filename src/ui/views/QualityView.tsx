@@ -8,7 +8,7 @@ import type { Issue, Severity } from '@core/analysis/qa'
 import type { EpisodeMetrics } from '@core/analysis/episodeMetrics'
 import { Badge, Histogram, PALETTE, Panel, fmtNum, useSorted } from '../common'
 
-export function IssueList({ issues, limit, onEpisode }: { issues: Issue[]; limit?: number; onEpisode?: (e: number) => void }) {
+export function IssueList({ issues, limit, onEpisode, onFlag }: { issues: Issue[]; limit?: number; onEpisode?: (e: number) => void; onFlag?: (eps: number[]) => void }) {
   const lang = useStore((s) => s.lang)
   const L = useL()
   const [filter, setFilter] = useState<Severity | 'all'>('all')
@@ -33,6 +33,11 @@ export function IssueList({ issues, limit, onEpisode }: { issues: Issue[]; limit
             <Badge kind={i.severity === 'error' ? 'err' : i.severity === 'warning' ? 'warn' : 'info'}>{i.severity}</Badge>
             <Badge>{i.category}</Badge>
             <b className="grow">{i.title[lang]}</b>
+            {onFlag && i.episodes?.length ? (
+              <button className="small ghost" onClick={() => onFlag(i.episodes!)} title={L('Flag all affected episodes for review', '将所有相关 episode 标为待复查')}>
+                ? {L('flag for review', '标为待复查')} ({i.episodes.length})
+              </button>
+            ) : null}
           </div>
           <div className="small" style={{ marginTop: 3 }}>
             {i.detail[lang]}
@@ -145,6 +150,7 @@ export function QualityView({ entry }: { entry: DatasetEntry }) {
               {scan.status} · {scan.done}/{scan.total} episodes
             </span>
             {scan.ms && <span className="muted">· {(scan.ms / 1000).toFixed(1)} s</span>}
+            {scan.cachedAt && <Badge kind="info">{L('restored from cache', '来自缓存')} · {new Date(scan.cachedAt).toLocaleString()}</Badge>}
             {scan.error && <Badge kind="err">{scan.error}</Badge>}
             {metrics.some((m) => m.error) && <Badge kind="warn">{metrics.filter((m) => m.error).length} failed</Badge>}
           </div>
@@ -154,7 +160,16 @@ export function QualityView({ entry }: { entry: DatasetEntry }) {
         </div>
       )}
       <Panel title={`${L('Issues', '问题列表')} (${entry.issues.length})`}>
-        <IssueList issues={entry.issues} onEpisode={selectEpisode} />
+        <IssueList
+          issues={entry.issues}
+          onEpisode={selectEpisode}
+          onFlag={(eps) => {
+            const st = useStore.getState()
+            const cur = st.flags[entry.id] ?? {}
+            st.setFlags(entry.id, eps.filter((e) => !cur[e]), { flag: 'review' })
+            st.notify(L(`${eps.length} episodes flagged for review`, `已将 ${eps.length} 个 episode 标为待复查`))
+          }}
+        />
       </Panel>
       {metrics.length > 0 && (
         <>

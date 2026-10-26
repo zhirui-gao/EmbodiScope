@@ -104,8 +104,20 @@ function poseFromComps(comps: (Comp | null)[], declaredQuat?: string): PoseSpec 
   const pos: [number, number, number] | null = px >= 0 && py >= 0 && pz >= 0 ? [px, py, pz] : null
   let rot: RotationSpec | null = null
   const qx = find('quat.x'), qy = find('quat.y'), qz = find('quat.z'), qw = find('quat.w')
+  const q1 = find('qn.1'), q2 = find('qn.2'), q3 = find('qn.3'), q4 = find('qn.4')
+  const rv = [find('rv.1'), find('rv.2'), find('rv.3')]
+  const r6 = Array.from({ length: 6 }, (_, k) => comps.indexOf(`r6.${k}` as Comp))
+  const r6b = Array.from({ length: 6 }, (_, k) => comps.indexOf(`r6.${k + 1}` as Comp))
   if (qx >= 0 && qy >= 0 && qz >= 0 && qw >= 0) {
     rot = qw < qx ? { repr: 'quat_wxyz', idx: [qw, qx, qy, qz] } : { repr: 'quat_xyzw', idx: [qx, qy, qz, qw] }
+  } else if (q1 >= 0 && q2 >= 0 && q3 >= 0 && q4 >= 0) {
+    // "q1..q4" says nothing about where w is
+    const repr: RotationRepr = declaredQuat === 'wxyz' ? 'quat_wxyz' : 'quat_xyzw'
+    rot = { repr, idx: [q1, q2, q3, q4], ambiguous: !declaredQuat, alternatives: ['quat_xyzw', 'quat_wxyz'] }
+  } else if (rv.every((i) => i >= 0)) {
+    rot = { repr: 'rotvec', idx: rv }
+  } else if (r6.every((i) => i >= 0) || r6b.every((i) => i >= 0)) {
+    rot = { repr: 'rot6d', idx: r6.every((i) => i >= 0) ? r6 : r6b }
   } else {
     const r = find('rpy.r'), p = find('rpy.p'), y = find('rpy.y')
     if (r >= 0 && p >= 0 && y >= 0) rot = { repr: 'euler_xyz', idx: [r, p, y] }
@@ -116,7 +128,6 @@ function poseFromComps(comps: (Comp | null)[], declaredQuat?: string): PoseSpec 
     }
   }
   if (!pos && !rot) return null
-  void declaredQuat
   return { pos, rot }
 }
 
@@ -153,9 +164,12 @@ interface DimLabel {
 function labelDims(names: string[]): DimLabel[] {
   const comps: (Comp | null)[] = []
   const out: DimLabel[] = []
+  // "q1 … q7" are joint angles, not a quaternion
+  const jointQ = names.some((n) => /(^|[^a-z])q_?[5-9]$/i.test(n))
   for (const name of names) {
     const tk = tokenize(name)
-    const comp = poseComponent(tk, comps)
+    let comp = poseComponent(tk, comps)
+    if (jointQ && comp?.startsWith('qn.')) comp = null
     comps.push(comp)
     let kind: DimKind = 'generic'
     const side = sideOf(tk)
@@ -213,6 +227,13 @@ function classifyFeature(f: FeatureSpec, ctx: Ctx): Segment[] {
     return [seg(f, 'meta', role, 0, f.dim, { confidence: 0.9, evidence: [`key mentions ${role}`] })]
   }
   if (has(keyTk, 'confidence')) return [seg(f, 'meta', 'confidence', 0, f.dim, { confidence: 0.9, evidence: ['key mentions confidence'] })]
+
+  // GR00T modality.json names the slices explicitly — trust it over heuristics
+  const mod = ctx.ds.extras.modality
+  if (mod) {
+    const groups = [...mod.state, ...mod.action].filter((g) => g.key === f.key && g.end <= f.dim)
+    if (groups.length) return modalitySegments(f, stream === 'other' ? (mod.action.includes(groups[0]) ? 'action' : 'observation') : stream, groups, ctx)
+  }
 
   // categorical annotations stored as int columns (RoboCoIN …)
   const isInt = /int|bool/.test(f.dtype)
@@ -313,6 +334,68 @@ function classifyFeature(f: FeatureSpec, ctx: Ctx): Segment[] {
   return [seg(f, stream, role, 0, f.dim, extra)]
 }
 
+/** Segments from GR00T modality groups; adjacent "<x>_position" + "<x>_rotation" groups merge into one pose. */
+function modalitySegments(f: FeatureSpec, stream: Stream, groups: import('../lerobot/types').ModalityGroup[], ctx: Ctx): Segment[] {
+  const out: Segment[] = []
+  const rotRepr = (n: number, g: import('../lerobot/types').ModalityGroup): RotationSpec | null => {
+    const t = (g.rotationType ?? '').toLowerCase()
+    const idx = Array.from({ length: n }, (_, i) => i)
+    if (n === 4) return { repr: t.includes('wxyz') ? 'quat_wxyz' : 'quat_xyzw', idx, ambiguous: !t, alternatives: ['quat_xyzw', 'quat_wxyz'] }
+    if (n === 6) return { repr: 'rot6d', idx }
+    if (n === 9) return { repr: 'matrix', idx }
+    if (n === 3) return t.includes('euler') ? { repr: 'euler_xyz', idx } : { repr: 'rotvec', idx, ambiguous: !t, alternatives: ['rotvec', 'euler_xyz'] }
+    return null
+  }
+  for (let i = 0; i < groups.length; i++) {
+    const g = groups[i]
+    const tk = tokenize(g.name)
+    const side = sideOf(tk)
+    const n = g.end - g.start
+    const ev = [`modality.json group "${g.name}" [${g.start}:${g.end}]`]
+    const isPos = has(tk, 'position', 'pos', 'xyz', 'translation') && n === 3
+    const isRot = has(tk, 'rotation', 'rot', 'orientation', 'quat', 'quaternion')
+    const next = groups[i + 1]
+    const base = (x: string[]) => x.filter((t) => !['position', 'pos', 'xyz', 'translation', 'rotation', 'rot', 'orientation', 'quat', 'quaternion'].includes(t)).join('_')
+    const extra: Partial<Segment> = { side, entity: g.name, confidence: 0.95, evidence: ev, actionType: stream === 'action' ? (g.absolute === false ? 'delta' : g.absolute ? 'absolute' : undefined) : undefined }
+    if (isPos && next && next.start === g.end && base(tokenize(next.name)) === base(tk) && has(tokenize(next.name), 'rotation', 'rot', 'orientation', 'quat', 'quaternion')) {
+      const rot = rotRepr(next.end - next.start, next)
+      if (rot) {
+        rot.idx = rot.idx.map((k) => k + 3)
+        const isBase = has(tk, 'base', 'chassis')
+        const delta = stream === 'action' && (g.absolute === false || has(tk, 'delta'))
+        out.push(
+          seg(f, stream, isBase ? 'base_pose' : 'eef_pose', g.start, next.end, {
+            ...extra,
+            entity: base(tk) || g.name,
+            pose: { pos: [0, 1, 2], rot, child: base(tk) || undefined, parent: has(tk, 'relative') ? 'base' : undefined },
+            actionType: delta ? 'delta' : extra.actionType,
+            evidence: [`modality.json groups "${g.name}" + "${next.name}"`],
+          }),
+        )
+        i++
+        continue
+      }
+    }
+    let role: Role
+    if (has(tk, ...GRIPPER_WORDS)) role = 'gripper'
+    else if (has(tk, 'hand', 'finger', 'dex')) role = 'hand_joints'
+    else if (has(tk, 'base') && has(tk, 'motion', 'velocity', 'vel', 'cmd')) role = 'base_velocity'
+    else if (has(tk, 'base') && (isPos || isRot)) role = 'base_pose'
+    else if (has(tk, ...EEF_WORDS, 'end', 'effector')) role = isPos ? (stream === 'action' ? 'delta_position' : 'eef_position') : isRot ? (stream === 'action' ? 'delta_rotation' : 'eef_pose') : 'eef_pose'
+    else if (has(tk, 'neck', 'head')) role = 'head'
+    else if (has(tk, 'waist', 'torso', 'spine')) role = 'torso'
+    else if (has(tk, 'arm', 'leg', 'joint', 'joints')) role = 'joint_position'
+    else if (has(tk, 'mode', 'control')) role = 'label'
+    else role = 'unknown'
+    if (role === 'eef_position') extra.pose = { pos: [0, 1, 2], rot: null }
+    if ((role === 'delta_rotation' || (role === 'eef_pose' && isRot)) && rotRepr(n, g)) extra.pose = { pos: null, rot: rotRepr(n, g) }
+    if (role === 'gripper') extra.gripper = gripperSpec(g.name, statRange(ctx.ds.stats?.[f.key], g.start, g.end))
+    if (role === 'delta_position' || role === 'delta_rotation') extra.actionType = 'delta'
+    out.push(seg(f, stream, role, g.start, g.end, extra))
+  }
+  return out
+}
+
 function keyLevelKind(tk: string[]): DimKind | 'eef' | 'joint_velocity' | 'joint_effort' | 'joint_current' | 'base_velocity' {
   const vel = has(tk, 'velocity', 'vel', 'velocities')
   if (has(tk, ...GRIPPER_WORDS)) return 'gripper'
@@ -377,7 +460,8 @@ function gripperSpec(text: string, range: ReturnType<typeof statRange>): Segment
 /** Value-based fallbacks for unnamed / generically named vectors (e.g. DROID "motor_0..6"). */
 function refineWithStats(s: Segment, ds: LeRobotDataset): Segment[] {
   const st = statRange(ds.stats?.[s.feature], s.start, s.end)
-  if (!st) return [s]
+  // explicit layouts (modality.json) are not second-guessed by value heuristics
+  if (!st || s.confidence >= 0.95) return [s]
   const n = s.end - s.start
   if (s.role === 'unknown' || (s.role === 'joint_position' && s.names.every((x) => /^(motor|joint|dim|j)?_?\d+$/.test(x)))) {
     const spans = st.min.map((m, i) => st.max[i] - m)
@@ -420,7 +504,8 @@ function inferUnits(s: Segment, ds: LeRobotDataset): void {
     const angIdx = s.pose?.rot && s.pose.rot.repr.startsWith('euler') ? s.pose.rot.idx : s.role === 'joint_position' || s.role === 'head' ? s.names.map((_, i) => i) : []
     if (angIdx.length && !units.angle) {
       const m = absMax(angIdx)
-      units.angle = m > 2 * Math.PI + 0.3 ? (m <= 100.5 && s.role === 'joint_position' ? 'normalized' : 'deg') : 'rad'
+      // continuous / multi-turn joints exceed ±π in radians; LeRobot's RANGE_M100_100 motor mode tops out at ±100
+      units.angle = m <= 3 * Math.PI ? 'rad' : s.role === 'joint_position' && m > 40 && m <= 100.5 ? 'normalized' : 'deg'
     }
   }
   if (declared && !units.length && s.pose?.pos) units.length = declared.length as any
@@ -506,11 +591,15 @@ function cameraModels(ds: LeRobotDataset, segments: Segment[]): CameraModel[] {
               ? 'third_person'
               : 'unknown'
       const intrDim = intr ? intr.end - intr.start : 0
+      // shape may be HWC (LeRobot default) or CHW (["channels","height","width"])
+      const dimNames = Array.isArray(f.rawNames) ? (f.rawNames as unknown[]).map((x) => String(x).toLowerCase()) : []
+      const hi = dimNames.indexOf('height') >= 0 ? dimNames.indexOf('height') : f.shape.length === 3 && f.shape[0] <= 4 ? 1 : 0
+      const wi = dimNames.indexOf('width') >= 0 ? dimNames.indexOf('width') : f.shape.length === 3 && f.shape[0] <= 4 ? 2 : 1
       return {
         key: f.key,
         name: nt.join('_') + (depthKey && !nt.includes('depth') ? '_depth' : ''),
-        height: Number(info['video.height'] ?? f.shape[0]) || undefined,
-        width: Number(info['video.width'] ?? f.shape[1]) || undefined,
+        height: Number(info['video.height'] ?? f.shape[hi]) || undefined,
+        width: Number(info['video.width'] ?? f.shape[wi]) || undefined,
         fps: Number(info['video.fps'] ?? ds.fps) || undefined,
         codec: info['video.codec'] ? String(info['video.codec']) : undefined,
         pixFmt: info['video.pix_fmt'] ? String(info['video.pix_fmt']) : undefined,

@@ -12,6 +12,7 @@ import { QualityView } from '@ui/views/QualityView'
 import { CompareView } from '@ui/views/CompareView'
 import { AiView } from '@ui/views/AiView'
 import { ErrorBoundary } from '@ui/common'
+import { GuideView } from '@ui/views/GuideView'
 import { sourceFromDrop } from '@core/io/browserSources'
 import { HfHubSource, ServerSource } from '@core/io/httpSource'
 import { openSource } from './actions'
@@ -66,12 +67,16 @@ export function App() {
     ['quality', L('Quality', '质量检测')],
     ['compare', L('Compare', '数据集对比')],
     ['ai', L('AI lab', 'AI 标注')],
+    ['guide', L('Guide', '使用说明')],
   ]
+  const free = (t: Tab) => t === 'compare' || t === 'ai' || t === 'guide'
 
   return (
     <div className="app">
       <TopBar onToggleSidebar={() => setCollapsed((c) => !c)} />
-      {!hasData ? (
+      {!hasData && tab === 'guide' ? (
+        <GuideView onClose={() => set({ tab: 'overview' })} />
+      ) : !hasData ? (
         <div className="view">
           <Welcome />
         </div>
@@ -81,12 +86,14 @@ export function App() {
           <div className="content">
             <div className="tabs">
               {tabs.map(([id, label]) => (
-                <button key={id} className={`tab ${tab === id ? 'active' : ''}`} onClick={() => set({ tab: id })} disabled={!entry && id !== 'compare' && id !== 'ai'}>
+                <button key={id} className={`tab ${tab === id ? 'active' : ''}`} onClick={() => set({ tab: id })} disabled={!entry && !free(id)}>
                   {label}
                 </button>
               ))}
             </div>
-            {entry || tab === 'compare' || tab === 'ai' ? (
+            {tab === 'guide' ? (
+              <GuideView />
+            ) : entry || free(tab) ? (
               <ErrorBoundary resetKey={`${tab}:${entry?.id}`}>
                 {tab === 'overview' && entry && <OverviewView entry={entry} />}
                 {tab === 'episode' && entry && <EpisodeView entry={entry} />}

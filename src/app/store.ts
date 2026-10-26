@@ -10,7 +10,7 @@ import type { LlmConfig } from '@core/ai/llm'
 import type { FormatAnalysis } from '@core/ai/prompts'
 import { PRESETS } from '@core/ai/llm'
 
-export type Tab = 'overview' | 'episode' | 'schema' | 'quality' | 'compare' | 'ai'
+export type Tab = 'overview' | 'episode' | 'schema' | 'quality' | 'compare' | 'ai' | 'guide'
 
 export interface ScanState {
   status: 'running' | 'done' | 'error' | 'cancelled'
@@ -20,6 +20,8 @@ export interface ScanState {
   videos?: Record<string, VideoProbe>
   ms?: number
   error?: string
+  /** set when restored from the browser cache */
+  cachedAt?: number
 }
 
 export interface DatasetEntry {
@@ -51,12 +53,21 @@ export interface EpisodeAnnotation {
   updatedAt: number
 }
 
+export type Flag = 'keep' | 'exclude' | 'review'
+export interface EpisodeFlag {
+  flag: Flag
+  note?: string
+  updatedAt: number
+}
+
 export interface Settings {
   llm: LlmConfig & { presetId: string; persistKey: boolean }
   upAxis: 'z' | 'y'
   showOverlay: boolean
   showGhostFrames: boolean
   chartsPerRow: number
+  /** future steps of the action chunk drawn in 3D (0 = off) */
+  chunkHorizon: number
 }
 
 const SETTINGS_KEY = 'embodiscope.settings.v1'
@@ -69,6 +80,7 @@ function loadSettings(): Settings {
     showOverlay: true,
     showGhostFrames: true,
     chartsPerRow: 2,
+    chunkHorizon: 0,
   }
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
@@ -97,12 +109,14 @@ export interface AppState {
   episodeIndex: number | null
   compareIds: string[]
   annotations: Record<string, Record<number, EpisodeAnnotation>>
+  flags: Record<string, Record<number, EpisodeFlag>>
   settings: Settings
   busy: string | null
   toast: { text: string; kind: 'info' | 'error' } | null
   set: (p: Partial<AppState>) => void
   updateDataset: (id: string, fn: (d: DatasetEntry) => Partial<DatasetEntry>) => void
   setAnnotation: (datasetId: string, ep: number, a: EpisodeAnnotation | null) => void
+  setFlags: (datasetId: string, eps: number[], f: Omit<EpisodeFlag, 'updatedAt'> | null) => void
   updateSettings: (fn: (s: Settings) => Settings) => void
   notify: (text: string, kind?: 'info' | 'error') => void
 }
@@ -122,6 +136,7 @@ export const useStore = create<AppState>((set, get) => ({
   episodeIndex: null,
   compareIds: [],
   annotations: {},
+  flags: {},
   settings: loadSettings(),
   busy: null,
   toast: null,
@@ -142,6 +157,19 @@ export const useStore = create<AppState>((set, get) => ({
     all[datasetId] = forDs
     set({ annotations: all })
     persistAnnotations(datasetId, forDs)
+  },
+  setFlags: (datasetId, eps, f) => {
+    const forDs = { ...(get().flags[datasetId] ?? {}) }
+    for (const ep of eps) {
+      if (f) forDs[ep] = { ...f, note: f.note ?? forDs[ep]?.note, updatedAt: Date.now() }
+      else delete forDs[ep]
+    }
+    set({ flags: { ...get().flags, [datasetId]: forDs } })
+    try {
+      localStorage.setItem(`embodiscope.flags.${datasetId}`, JSON.stringify(forDs))
+    } catch {
+      // quota: flags stay in memory and can be exported
+    }
   },
   updateSettings: (fn) => {
     const s = fn(get().settings)
@@ -169,9 +197,16 @@ export function restoreAnnotations(id: string) {
   try {
     const raw = localStorage.getItem(ANN_KEY(id))
     if (raw) useStore.setState((s) => ({ annotations: { ...s.annotations, [id]: JSON.parse(raw) } }))
+    const flags = localStorage.getItem(`embodiscope.flags.${id}`)
+    if (flags) useStore.setState((s) => ({ flags: { ...s.flags, [id]: JSON.parse(flags) } }))
   } catch {
     // ignore corrupted entries
   }
+}
+
+/** Episodes mentioned by any QA issue of a dataset. */
+export function issueEpisodes(d: DatasetEntry): Set<number> {
+  return new Set(d.issues.flatMap((i) => i.episodes ?? []))
 }
 
 export const currentEntry = (s: AppState) => (s.currentId ? s.datasets[s.currentId] : undefined)

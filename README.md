@@ -48,9 +48,13 @@ npm run build && npm run build:single              # dist/ (Pages) and dist-sing
 
 URL parameters: `?hf=lerobot/pusht` opens a Hub dataset, `?server=http://host:8686` connects to a remote `serve.mjs`.
 
-## Tested datasets
+## Tested datasets (23)
 
-AgiBot World (a2d), EgoDex (human hands, egocentric), InternData-A1 (sim, Franka / ARX Lift-2), Open X-Embodiment RT-1 fractal, RoboCoIN (Airbot MMK2, dexterous hands), RoboMIND (AgileX, depth), LeRobot v3.0: ALOHA sim insertion, DROID-100, PushT, SO-101 pick-place.
+- **v2.0**: physical-intelligence/libero (images in parquet), GR00T GR1 (RoboCasa-GR1, `modality.json`), GR00T-X-Embodiment-Sim gr1_arms_only.
+- **v2.1**: AgiBot World, EgoDex (human hands), InternData-A1 (Franka / ARX Lift-2), Open X-Embodiment RT-1, RoboCoIN (dexterous hands), RoboMIND (16-bit depth), IPEC LIBERO-10, RoboTwin 2.0 EEF.
+- **v3.0**: ALOHA sim, DROID-100, PushT, SO-101 (+ URDF), lerobot/libero, lerobot/robotwin_unified, lerobot/robocasa_target_human_unified, OpenMOSS RoboCasa365.
+
+The in-app **Guide** (zh / en) is rendered from [docs/guide](docs/guide). Known gaps and plans: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Project layout
 

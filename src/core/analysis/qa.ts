@@ -51,7 +51,17 @@ export const CHECKS: QaCheck[] = [
     category: 'structure',
     needs: 'static',
     run: ({ ds }) =>
-      ds.warnings.map((w) => ({ check: 'meta.warnings', severity: 'warning' as Severity, category: 'structure' as Category, title: l('Metadata inconsistency', '元数据不一致'), detail: l(w, w) })),
+      ds.warnings.map((w) => {
+        // a partial local copy or per-frame task references are facts about the copy, not defects of the data
+        const benign = /partial download|sampled subset|task_index/.test(w)
+        return {
+          check: 'meta.warnings',
+          severity: (benign ? 'info' : 'warning') as Severity,
+          category: 'structure' as Category,
+          title: benign ? l('Metadata note', '元数据说明') : l('Metadata inconsistency', '元数据不一致'),
+          detail: l(w, w),
+        }
+      }),
   },
   {
     id: 'meta.convention',
@@ -100,8 +110,13 @@ export const CHECKS: QaCheck[] = [
     category: 'structure',
     needs: 'static',
     run: ({ ds, sem }) => {
-      const unnamed = ds.features.filter((f) => !f.isVideo && !f.isImage && f.dim > 1 && !f.names)
-      const generic = ds.features.filter((f) => f.names && f.names.every((n) => /^(motor|joint|dim|axis)?_?\d+$/.test(n)) && f.dim > 2 && !f.key.includes('joint'))
+      // features already explained by a profile, the user, an LLM or modality.json are fine
+      const explained = (key: string) => {
+        const segs = sem.segments.filter((s) => s.feature === key)
+        return segs.length > 0 && segs.every((s) => s.overridden || s.confidence >= 0.95)
+      }
+      const unnamed = ds.features.filter((f) => !f.isVideo && !f.isImage && f.dim > 1 && !f.names && !explained(f.key))
+      const generic = ds.features.filter((f) => f.names && f.names.every((n) => /^(motor|joint|dim|axis|state|actions?)?_?\d*$/.test(n)) && f.dim > 2 && !f.key.includes('joint') && !explained(f.key))
       const unknown = sem.segments.filter((s) => s.role === 'unknown')
       const out: Issue[] = []
       if (unnamed.length || generic.length)
@@ -153,7 +168,20 @@ export const CHECKS: QaCheck[] = [
     run: ({ ds }) => {
       const out: Issue[] = []
       const empty = ds.episodes.filter((e) => !e.tasks.length || e.tasks.every((t) => !t.trim()))
-      if (empty.length)
+      // v3 conversions may omit episodes.tasks while frames still reference meta/tasks via task_index
+      const perFrame = ds.tasks.length > 0 && ds.warnings.some((w) => w.includes('task_index'))
+      if (empty.length && perFrame)
+        out.push({
+          check: 'annotation.language',
+          severity: 'info',
+          category: 'annotation',
+          title: l('Instructions only referenced per frame', '指令只在帧级 task_index 中引用'),
+          detail: l(
+            `episodes metadata lists no tasks; ${ds.tasks.length} instructions exist in meta/tasks and are resolved from task_index when episodes are loaded / scanned (${empty.length} not resolved yet).`,
+            `episodes 元数据未列出指令；meta/tasks 中有 ${ds.tasks.length} 条指令，加载或扫描 episode 时通过 task_index 解析（尚有 ${empty.length} 个未解析）。`,
+          ),
+        })
+      else if (empty.length)
         out.push({
           check: 'annotation.language',
           severity: 'warning',

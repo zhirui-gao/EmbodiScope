@@ -50,6 +50,7 @@ export function Welcome() {
           <button className="primary" onClick={open}>
             {L('Choose folder', '选择文件夹')}
           </button>
+          <button onClick={() => useStore.getState().set({ tab: 'guide' })}>📖 {L('Read the guide', '阅读使用说明')}</button>
         </div>
         <div className="row wrap" style={{ justifyContent: 'center', marginTop: 16, gap: 6 }}>
           <span className="muted small">{L('or try a public dataset:', '或者试试公开数据集：')}</span>

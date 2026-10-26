@@ -16,6 +16,31 @@ export interface DatasetProfile {
 }
 
 const byFeature = (segments: Segment[], feature: string) => segments.filter((s) => s.feature === feature)
+
+type Part = Pick<Segment, 'role'> & Partial<Pick<Segment, 'side' | 'entity' | 'pose' | 'gripper' | 'actionType' | 'units'>> & { start: number; end: number }
+
+/** Replace every segment of `feature` with an explicit, documented layout. */
+function layout(ds: LeRobotDataset, segments: Segment[], feature: string, stream: Segment['stream'], parts: Part[], ev: string): Segment[] {
+  const f = ds.features.find((x) => x.key === feature)
+  if (!f) return segments
+  const names = f.names ?? Array.from({ length: f.dim }, (_, i) => `${feature}[${i}]`)
+  const made = parts.map((p) => {
+    const s: Segment = {
+      id: p.start === 0 && p.end === f.dim ? feature : `${feature}[${p.start}:${p.end}]`,
+      feature,
+      names: names.slice(p.start, p.end),
+      stream,
+      confidence: 0.9,
+      evidence: [],
+      ...p,
+    }
+    mark(s, ev)
+    return s
+  })
+  return segments.filter((s) => s.feature !== feature).concat(made)
+}
+const keyOf = (ds: LeRobotDataset, ...keys: string[]) => keys.find((k) => ds.features.some((f) => f.key === k))
+const dimOf = (ds: LeRobotDataset, key?: string) => ds.features.find((f) => f.key === key)?.dim
 const mark = (s: Segment, ev: string) => {
   s.overridden = 'profile'
   s.confidence = Math.max(s.confidence, 0.9)
@@ -121,6 +146,69 @@ export const PROFILES: DatasetProfile[] = [
     },
   },
 ]
+
+PROFILES.push(
+  {
+    id: 'libero',
+    label: 'LIBERO (robosuite Panda, OSC_POSE)',
+    reference: 'https://libero-project.github.io/',
+    // physical-intelligence/libero (state/actions), lerobot/libero & HuggingFaceVLA/libero, IPEC-COMMUNITY/libero_*
+    match: (ds) => {
+      const st = keyOf(ds, 'observation.state', 'state')
+      const ac = keyOf(ds, 'action', 'actions')
+      return /panda|franka/i.test(ds.robotType) && dimOf(ds, st) === 8 && dimOf(ds, ac) === 7 && (/libero/i.test(ds.name + ds.source.label) || ds.tasks.some((t) => /libero|put the|open the|turn on the stove/i.test(t.text)))
+    },
+    apply(segments, ds) {
+      const st = keyOf(ds, 'observation.state', 'state')!
+      const ac = keyOf(ds, 'action', 'actions')!
+      segments = layout(ds, segments, st, 'observation', [
+        { start: 0, end: 6, role: 'eef_pose', pose: { pos: [0, 1, 2], rot: { repr: 'rotvec', idx: [3, 4, 5] }, child: 'eef', parent: 'world' }, units: { length: 'm', angle: 'rad' } },
+        { start: 6, end: 8, role: 'gripper', gripper: { polarity: 'open_high' }, units: { length: 'm' } },
+      ], 'LIBERO: state = robosuite robot0_eef_pos + axis-angle of robot0_eef_quat (world frame) + 2 finger joint positions')
+      segments = layout(ds, segments, ac, 'action', [
+        { start: 0, end: 3, role: 'delta_position', actionType: 'delta' },
+        { start: 3, end: 6, role: 'delta_rotation', actionType: 'delta', pose: { pos: null, rot: { repr: 'rotvec', idx: [0, 1, 2] } } },
+        { start: 6, end: 7, role: 'gripper', actionType: 'absolute', gripper: { polarity: 'closed_high', range: [-1, 1] } },
+      ], 'LIBERO: OSC_POSE action = normalised Δxyz + Δaxis-angle in [-1, 1] (scaled by the controller), gripper -1 open / +1 close')
+      return segments
+    },
+  },
+  {
+    id: 'robocasa-gr00t',
+    label: 'RoboCasa (robosuite PandaOmron, GR00T layout)',
+    reference: 'https://robocasa.ai/',
+    match: (ds) => /robocasa|pandaomron/i.test(ds.robotType + ds.name) && dimOf(ds, 'observation.state') === 16 && dimOf(ds, 'action') === 12 && !ds.extras.modality,
+    apply(segments, ds) {
+      segments = layout(ds, segments, 'observation.state', 'observation', [
+        { start: 0, end: 7, role: 'base_pose', pose: { pos: [0, 1, 2], rot: { repr: 'quat_xyzw', idx: [3, 4, 5, 6] }, child: 'mobile_base', parent: 'world' }, units: { length: 'm' } },
+        { start: 7, end: 14, role: 'eef_pose', pose: { pos: [0, 1, 2], rot: { repr: 'quat_xyzw', idx: [3, 4, 5, 6] }, child: 'eef', parent: 'mobile_base' }, units: { length: 'm' } },
+        { start: 14, end: 16, role: 'gripper', gripper: { polarity: 'open_high' } },
+      ], 'RoboCasa (GR00T modality): base_position + base_rotation (xyzw) | end_effector_position/rotation_relative (xyzw) | gripper_qpos — verify order for custom conversions')
+      segments = layout(ds, segments, 'action', 'action', [
+        { start: 0, end: 4, role: 'base_velocity', actionType: 'velocity' },
+        { start: 4, end: 5, role: 'label', entity: 'control_mode' },
+        { start: 5, end: 8, role: 'delta_position', actionType: 'delta' },
+        { start: 8, end: 11, role: 'delta_rotation', actionType: 'delta', pose: { pos: null, rot: { repr: 'rotvec', idx: [0, 1, 2] } } },
+        { start: 11, end: 12, role: 'gripper', actionType: 'absolute', gripper: { polarity: 'closed_high', range: [-1, 1] } },
+      ], 'RoboCasa (GR00T modality): base_motion(4) | control_mode | Δeef xyz | Δeef axis-angle | gripper_close')
+      return segments
+    },
+  },
+  {
+    id: 'robotwin-eef',
+    label: 'RoboTwin (SAPIEN, EEF xyz + quaternion)',
+    reference: 'https://robotwin-platform.github.io/',
+    match: (ds) => /aloha|robotwin/i.test(ds.robotType + ds.name) && ds.features.some((f) => f.names?.some((n) => /left_q1$/.test(n))),
+    apply(segments) {
+      for (const s of segments)
+        if (s.pose?.rot && s.names.some((n) => /_q[1-4]$/.test(n))) {
+          s.pose.rot = { ...s.pose.rot, repr: 'quat_wxyz', ambiguous: false }
+          mark(s, 'RoboTwin end poses come from SAPIEN Pose (p, q) with q = (w, x, y, z)')
+        }
+      return segments
+    },
+  },
+)
 
 export function matchingProfiles(ds: LeRobotDataset): DatasetProfile[] {
   return PROFILES.filter((p) => {

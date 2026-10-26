@@ -58,9 +58,13 @@ URL 参数：`?hf=lerobot/pusht` 直接打开 Hub 数据集；`?server=http://ho
 5. **数据集对比**：混合训练前对齐各数据集的约定。
 6. **AI 标注**：补齐子任务与 caption，导出后用于分层策略或 VLA 训练。
 
-## 已测试的数据集
+## 已测试的数据集（23 个）
 
-AgiBot World（a2d）、EgoDex（第一视角人手）、InternData-A1（仿真，Franka / ARX Lift-2）、Open X-Embodiment RT-1 fractal、RoboCoIN（Airbot MMK2 灵巧手）、RoboMIND（AgileX，含深度）；LeRobot v3.0：ALOHA sim insertion、DROID-100、PushT、SO-101 pick-place。
+- **v2.0**：physical-intelligence/libero（图像内嵌 parquet）、GR00T GR1（RoboCasa-GR1，带 `modality.json`）、GR00T-X-Embodiment-Sim gr1_arms_only。
+- **v2.1**：AgiBot World、EgoDex（人手）、InternData-A1（Franka / ARX Lift-2）、Open X-Embodiment RT-1、RoboCoIN（灵巧手）、RoboMIND（16 位深度）、IPEC LIBERO-10、RoboTwin 2.0 EEF。
+- **v3.0**：ALOHA sim、DROID-100、PushT、SO-101（含 URDF）、lerobot/libero、lerobot/robotwin_unified、lerobot/robocasa_target_human_unified、OpenMOSS RoboCasa365。
+
+平台内的「使用说明」页（中 / 英）直接渲染自 [docs/guide](docs/guide)。已知不足与规划见 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 扩展开发
 

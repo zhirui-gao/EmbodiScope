@@ -6,6 +6,7 @@ import { runChecks } from '@core/analysis/qa'
 import type { DatasetEntry, SourceEntry } from './store'
 import { restoreAnnotations, useStore } from './store'
 import { loadUserOverrides } from './overrides'
+import { restoreScan } from './scan'
 
 let sourceCounter = 0
 
@@ -52,10 +53,12 @@ export async function openSource(source: FileSource) {
           const d = buildEntry(ds)
           useStore.setState((s) => ({ datasets: { ...s.datasets, [d.id]: d } }))
           restoreAnnotations(d.id)
+          restoreScan(d.id)
           setStatus(entry.id, i, { status: 'ready', id: d.id })
           if (!firstReady) {
             firstReady = d.id
-            if (!useStore.getState().currentId) useStore.getState().set({ currentId: d.id, tab: 'overview', episodeIndex: null })
+            // select the first dataset but never pull the user away from the page they are on
+            if (!useStore.getState().currentId) useStore.getState().set({ currentId: d.id, episodeIndex: null })
           }
         } catch (e) {
           console.error(e)

@@ -56,6 +56,16 @@ EmbodiScope 将标注分为以下层级，并给出 0–5 的精细度评分：
 
 本体类型（单臂 / 双臂 / 人形 / 移动 / 灵巧手 / 人手）、底盘是否真的移动（InternData 的 `robot_to_env_pose` 在 episode 内恒定，因此不算移动平台）、末端工作空间覆盖、episode 时长分布、任务分布。对比页会叠加显示多个数据集的工作空间与时长分布。
 
+## 主流数据集实测补充 · Mainstream datasets
+
+| 数据集 | 版本 | 关键约定 / 发现 |
+|---|---|---|
+| LIBERO（physical-intelligence / lerobot / IPEC） | v2.0 / v3.0 / v2.1 | 状态为末端 xyz + **轴角** + 两指位置（世界坐标系）；动作为 OSC **归一化增量** [-1,1]，夹爪 -1 张开 / +1 闭合；pi 版键名不标准（`state`、`actions`、`image`），图像内嵌在 parquet 中；维度名只有一个 `"state"`，必须依靠约定才能解释 |
+| RoboTwin 2.0 EEF（robbyant） | v2.1 | 每臂 xyz + `q1..q4` 四元数（SAPIEN，**wxyz**）+ 夹爪；视频 shape 写成 CHW（`3×480×640`）；50 fps |
+| RoboTwin unified（lerobot） | v3.0 | 14 维 ALOHA 关节，部分关节超过 ±2π（多圈 / 连续关节），27 500 个 episode，23 559 条指令 |
+| RoboCasa-GR1（GR00T） | v2.0 | 以 `modality.json` 定义 44 维分组：双臂(7)、Fourier 手(6)、腿(6)、颈(3)、腰(3)；arms-only 任务中腿部恒为 0；dtype 写成 `object` |
+| RoboCasa / RoboCasa365 | v3.0 | 状态 16 = 底盘位置 + 底盘四元数(xyzw) + 末端相对位姿(xyzw) + 夹爪；动作 12 = 底盘运动(4) + 控制模式 + 末端增量 + 夹爪；维度均未命名 |
+
 ## 混合训练检查清单 · Co-training checklist
 
 对比页会自动生成以下检查项：帧率、四元数顺序、旋转表示、动作空间、绝对/增量、夹爪极性、单位、参考系、相机数量、分辨率、本体类型、子任务标注覆盖。

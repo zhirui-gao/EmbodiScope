@@ -6,8 +6,40 @@ import { runChecks } from '@core/analysis/qa'
 import { probeMp4 } from '@core/video/mp4'
 import type { VideoProbe } from '@core/video/mp4'
 import { useStore } from './store'
+import { idbGet, idbSet, scanCacheKey } from './cache'
+import { datasetCard } from '@core/analysis/summary'
+import type { LeRobotDataset } from '@core/lerobot/types'
 
 const running = new Map<string, { cancelled: boolean }>()
+
+/** v3 episodes without a "tasks" column: take instructions from the scanned per-frame task_index. */
+function fillTasks(ds: LeRobotDataset, metrics: EpisodeMetrics[]): boolean {
+  const byIndex = new Map(ds.tasks.map((t) => [t.index, t.text]))
+  const eps = new Map(ds.episodes.map((e) => [e.index, e]))
+  let filled = false
+  for (const m of metrics) {
+    const e = eps.get(m.episode)
+    if (e && !e.tasks.length && m.taskIndices?.length) {
+      e.tasks = m.taskIndices.map((i) => byIndex.get(i)).filter((x): x is string => Boolean(x))
+      filled = filled || e.tasks.length > 0
+    }
+  }
+  return filled
+}
+
+/** Restore a previous full scan of an unchanged dataset (see cache.ts for the invalidation key). */
+export async function restoreScan(id: string) {
+  const entry = useStore.getState().datasets[id]
+  if (!entry) return
+  const hit = await idbGet<{ metrics: EpisodeMetrics[]; videos: Record<string, VideoProbe>; ms: number; savedAt: number }>(scanCacheKey(entry.ds))
+  if (!hit || useStore.getState().datasets[id]?.scan) return
+  const filled = fillTasks(entry.ds, hit.metrics)
+  useStore.getState().updateDataset(id, (d) => ({
+    ...(filled ? { card: datasetCard(d.ds, d.sem) } : {}),
+    scan: { status: 'done', done: hit.metrics.length, total: hit.metrics.length, metrics: hit.metrics, videos: hit.videos, ms: hit.ms, cachedAt: hit.savedAt },
+    issues: runChecks({ ds: d.ds, sem: d.sem, metrics: hit.metrics, videos: hit.videos }),
+  }))
+}
 
 export function cancelScan(id: string) {
   const r = running.get(id)
@@ -124,8 +156,14 @@ export async function scanDataset(id: string, opts: { maxEpisodes?: number } = {
       }
     }
     const status = token.cancelled ? 'cancelled' : 'done'
-    update({ status, done: metrics.length, metrics, videos, ms: performance.now() - t0 })
-    useStore.getState().updateDataset(id, (d) => ({ issues: runChecks({ ds: d.ds, sem: d.sem, metrics, videos }) }))
+    const ms = performance.now() - t0
+    const filled = fillTasks(ds, metrics)
+    update({ status, done: metrics.length, metrics, videos, ms })
+    useStore.getState().updateDataset(id, (d) => ({
+      ...(filled ? { card: datasetCard(d.ds, d.sem) } : {}),
+      issues: runChecks({ ds: d.ds, sem: d.sem, metrics, videos }),
+    }))
+    if (status === 'done' && !opts.maxEpisodes) idbSet(scanCacheKey(ds), { metrics, videos, ms, savedAt: Date.now() })
   } catch (e) {
     console.error(e)
     update({ status: 'error', error: (e as Error).message, metrics })

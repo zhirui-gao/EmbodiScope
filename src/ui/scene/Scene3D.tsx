@@ -68,11 +68,12 @@ export function Scene3D({ model }: { model: SceneModel }) {
   const host = useRef<HTMLDivElement>(null)
   const upAxis = useStore((s) => s.settings.upAxis)
   const ghosts = useStore((s) => s.settings.showGhostFrames)
+  const horizon = useStore((s) => s.settings.chunkHorizon)
   const updateSettings = useStore((s) => s.updateSettings)
   const defaultFrame = useMemo(() => {
     const counts = new Map<string, number>()
     for (const t of model.tracks.filter((t) => t.seg.role !== 'base_pose')) counts.set(parentOf(t.seg), (counts.get(parentOf(t.seg)) ?? 0) + 1)
-    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? model.frames[0] ?? 'base'
+    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? model.robot?.frame ?? model.frames[0] ?? 'base'
   }, [model])
   const [frame, setFrame] = useState(defaultFrame)
   const [showAction, setShowAction] = useState(false)
@@ -88,6 +89,7 @@ export function Scene3D({ model }: { model: SceneModel }) {
       actions: showAction ? model.actionTracks.filter(inFrame) : [],
       cameras: showCams ? model.cameras.filter((c) => parentOf(c.track.segment) === frame) : [],
       skeleton: model.skeleton && (frame === 'world' || model.skeleton.tracks.every((t) => parentOf(t.segment) === frame)) ? model.skeleton : null,
+      robot: model.robot && model.robot.frame === frame ? model.robot : null,
     }
   }, [model, frame, showAction, showCams])
 
@@ -117,6 +119,10 @@ export function Scene3D({ model }: { model: SceneModel }) {
     visible.tracks.forEach((t) => addPts(t.track))
     visible.cameras.forEach((c) => addPts(c.track))
     visible.skeleton?.tracks.forEach((t) => addPts(t))
+    if (visible.robot) {
+      const step = Math.max(1, Math.floor(model.length / 20))
+      for (let t = 0; t < model.length; t += step) for (const T of visible.robot.fk(t).values()) box.expandByPoint(new THREE.Vector3(T[3], T[7], T[11]))
+    }
     box.expandByPoint(new THREE.Vector3(0, 0, 0))
     const size = box.getSize(new THREE.Vector3())
     const extent = Math.max(size.x, size.y, size.z, 0.2)
@@ -197,8 +203,28 @@ export function Scene3D({ model }: { model: SceneModel }) {
         holder.add(lab)
       }
       scene.add(holder)
+      // action-chunk preview: the next H frames from the current one
+      let chunk: THREE.Line | null = null
+      if (horizon > 0 && tr.pos) {
+        const g = new THREE.BufferGeometry()
+        g.setAttribute('position', new THREE.Float32BufferAttribute(new Array((horizon + 1) * 3).fill(0), 3))
+        chunk = new THREE.Line(g, new THREE.LineBasicMaterial({ color: isAction ? 0xffe066 : 0xffffff, transparent: true, opacity: isAction ? 0.95 : 0.8, depthTest: false }))
+        chunk.renderOrder = 5
+        scene.add(chunk)
+      }
       live.push({
         update: (f) => {
+          if (chunk && tr.pos) {
+            const arr = chunk.geometry.attributes.position.array as Float32Array
+            let last = posAt(tr, f)
+            for (let k = 0; k <= horizon; k++) {
+              const p = posAt(tr, Math.min(tr.length - 1, f + k)) ?? last
+              if (p) arr.set(p, k * 3)
+              last = p
+            }
+            chunk.geometry.attributes.position.needsUpdate = true
+            chunk.geometry.computeBoundingSphere()
+          }
           setPose(holder, posAt(tr, f), rotAt(tr, f))
           if (!tr.pos) holder.position.set(0, 0, 0)
           if (it.gripper) {
@@ -287,6 +313,56 @@ export function Scene3D({ model }: { model: SceneModel }) {
       })
     }
 
+    // URDF robot driven by joint angles (forward kinematics)
+    if (visible.robot) {
+      const rb = visible.robot
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(new Array(rb.bones.length * 6).fill(0), 3))
+      scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x9ecbff })))
+      const jgeo = new THREE.BufferGeometry()
+      jgeo.setAttribute('position', new THREE.Float32BufferAttribute(new Array(rb.bones.length * 3).fill(0), 3))
+      scene.add(new THREE.Points(jgeo, new THREE.PointsMaterial({ color: 0xffffff, size: axisLen * 0.15 })))
+      const tips = rb.leaves.map((l) => {
+        const g = triad(axisLen * 0.6)
+        const lab = textSprite(l, '#9ecbff', 36)
+        lab.position.set(0, 0, axisLen * 0.9)
+        lab.scale.set(axisLen * 0.35 * lab.userData.aspect, axisLen * 0.35, 1)
+        g.add(lab)
+        scene.add(g)
+        return { link: l, g }
+      })
+      const trail: number[] = []
+      const tipTrailGeo = new THREE.BufferGeometry()
+      for (let t = 0; t < model.length; t += Math.max(1, Math.floor(model.length / 300))) {
+        const T = rb.fk(t)
+        for (const l of rb.leaves) {
+          const m = T.get(l)
+          if (m) trail.push(m[3], m[7], m[11])
+        }
+      }
+      tipTrailGeo.setAttribute('position', new THREE.Float32BufferAttribute(trail, 3))
+      if (showTrail) scene.add(new THREE.Points(tipTrailGeo, new THREE.PointsMaterial({ color: 0x4d8dff, size: axisLen * 0.06, transparent: true, opacity: 0.5 })))
+      live.push({
+        update: (f) => {
+          const T = rb.fk(f)
+          const arr = geo.attributes.position.array as Float32Array
+          const jarr = jgeo.attributes.position.array as Float32Array
+          rb.bones.forEach(([p, c], i) => {
+            const a = T.get(p), b = T.get(c)
+            if (!a || !b) return
+            arr.set([a[3], a[7], a[11], b[3], b[7], b[11]], i * 6)
+            jarr.set([b[3], b[7], b[11]], i * 3)
+          })
+          geo.attributes.position.needsUpdate = true
+          jgeo.attributes.position.needsUpdate = true
+          for (const { link, g } of tips) {
+            const m = T.get(link)
+            if (m) setPose(g, [m[3], m[7], m[11]], [m[0], m[1], m[2], m[4], m[5], m[6], m[8], m[9], m[10]])
+          }
+        },
+      })
+    }
+
     const resize = () => {
       const w = el.clientWidth, h = el.clientHeight
       renderer.setSize(w, h)
@@ -330,7 +406,7 @@ export function Scene3D({ model }: { model: SceneModel }) {
       })
       el.removeChild(renderer.domElement)
     }
-  }, [visible, upAxis, ghosts, showTrail, frame])
+  }, [visible, upAxis, ghosts, showTrail, frame, horizon])
 
   return (
     <div className="scene3d" ref={host}>
@@ -342,7 +418,8 @@ export function Scene3D({ model }: { model: SceneModel }) {
         </span>{' '}
         · {L('frame', '参考系')} <span className="mono">{frame}</span> · {visible.tracks.length} {L('poses', '个位姿')}
         {visible.skeleton ? ` · ${visible.skeleton.tracks.length} ${L('keypoints', '个关键点')}` : ''}
-        {!visible.tracks.length && !visible.skeleton && <div style={{ color: 'var(--warn)' }}>{L('No poses in this frame', '该参考系下没有位姿数据')}</div>}
+        {visible.robot ? ` · URDF ${visible.robot.name}` : ''}
+        {!visible.tracks.length && !visible.skeleton && !visible.robot && <div style={{ color: 'var(--warn)' }}>{L('No poses in this frame', '该参考系下没有位姿数据')}</div>}
       </div>
       <div className="ctl">
         {model.frames.length > 1 && (
@@ -362,6 +439,18 @@ export function Scene3D({ model }: { model: SceneModel }) {
         <button className={`small ${ghosts ? '' : 'ghost'}`} onClick={() => updateSettings((s) => ({ ...s, showGhostFrames: !s.showGhostFrames }))}>
           {L('ghost axes', '姿态残影')}
         </button>
+        <select
+          className="small seg-select"
+          value={horizon}
+          onChange={(e) => updateSettings((s) => ({ ...s, chunkHorizon: Number(e.target.value) }))}
+          title={L('Action-chunk preview: highlight the next H frames', 'Action chunk 预览：高亮未来 H 帧')}
+        >
+          {[0, 8, 16, 32, 50, 100].map((h) => (
+            <option key={h} value={h}>
+              {h ? `chunk H=${h}` : L('chunk off', 'chunk 关')}
+            </option>
+          ))}
+        </select>
         {model.actionTracks.length > 0 && (
           <button className={`small ${showAction ? '' : 'ghost'}`} onClick={() => setShowAction((v) => !v)}>
             {L('action target', '动作目标')}

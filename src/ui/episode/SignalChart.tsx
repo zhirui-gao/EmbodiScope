@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import uPlot from 'uplot'
 import { playback } from '@app/playback'
+import { useStore } from '@app/store'
 
 export interface ChartSeries {
   label: string
@@ -13,7 +14,17 @@ export interface ChartSeries {
 export function SignalChart({ title, series, length, height = 150, syncKey }: { title: string; series: ChartSeries[]; length: number; height?: number; syncKey: string }) {
   const host = useRef<HTMLDivElement>(null)
   const cursor = useRef<HTMLDivElement>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const chunk = useRef<HTMLDivElement>(null)
+  // episodes can have dozens of chart groups: only build plots that are (nearly) on screen
+  const [visible, setVisible] = useState(false)
   useEffect(() => {
+    const io = new IntersectionObserver((es) => es.some((e) => e.isIntersecting) && setVisible(true), { rootMargin: '300px' })
+    if (box.current) io.observe(box.current)
+    return () => io.disconnect()
+  }, [])
+  useEffect(() => {
+    if (!visible) return
     const el = host.current!
     const x = Float64Array.from({ length }, (_, i) => i)
     const data: uPlot.AlignedData = [x, ...series.map((s) => Float64Array.from(s.values as ArrayLike<number>, (v) => (Number.isFinite(v) ? v : (null as unknown as number))))]
@@ -46,6 +57,14 @@ export function SignalChart({ title, series, length, height = 150, syncKey }: { 
       cursor.current.style.left = `${left}px`
       cursor.current.style.top = `${u.over.offsetTop}px`
       cursor.current.style.height = `${u.over.clientHeight}px`
+      const H = useStore.getState().settings.chunkHorizon
+      if (chunk.current) {
+        chunk.current.style.display = H ? 'block' : 'none'
+        chunk.current.style.left = `${left}px`
+        chunk.current.style.top = `${u.over.offsetTop}px`
+        chunk.current.style.height = `${u.over.clientHeight}px`
+        chunk.current.style.width = `${Math.max(0, u.valToPos(Math.min(length - 1, f + H), 'x') + u.over.offsetLeft - left)}px`
+      }
     }
     place(playback.frame)
     const un = playback.subscribe(place)
@@ -59,12 +78,13 @@ export function SignalChart({ title, series, length, height = 150, syncKey }: { 
       ro.disconnect()
       u.destroy()
     }
-  }, [series, length, height, syncKey])
+  }, [series, length, height, syncKey, visible])
   return (
-    <div className="chart-box">
+    <div className="chart-box" ref={box}>
       <div className="title">{title}</div>
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', minHeight: visible ? undefined : height + 30 }}>
         <div ref={host} />
+        <div ref={chunk} style={{ position: 'absolute', background: '#ffe06622', borderLeft: 'none', pointerEvents: 'none', display: 'none' }} />
         <div ref={cursor} className="cursor-line" style={{ width: 1, background: '#ffffffaa', boxShadow: 'none' }} />
       </div>
     </div>

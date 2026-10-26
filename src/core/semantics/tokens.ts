@@ -34,7 +34,16 @@ export const CAMERA_WORDS = ['camera', 'cam']
  * "x" / "position.x" / "left_eef_pos_x" -> pos.x ; "quaternion.w" / "qw" -> quat.w ; "roll" / "r" -> rpy.r ;
  * "rot_x" / "rx" / "ori_x" -> rot.x (ambiguous euler / rotvec)
  */
-export type Comp = `pos.${'x' | 'y' | 'z'}` | `quat.${'x' | 'y' | 'z' | 'w'}` | `rpy.${'r' | 'p' | 'y'}` | `rot.${'x' | 'y' | 'z'}` | `r6.${number}`
+export type Comp =
+  | `pos.${'x' | 'y' | 'z'}`
+  | `quat.${'x' | 'y' | 'z' | 'w'}`
+  /** quaternion component by position only ("q1".."q4"): order must come from a profile / convention */
+  | `qn.${1 | 2 | 3 | 4}`
+  | `rpy.${'r' | 'p' | 'y'}`
+  | `rot.${'x' | 'y' | 'z'}`
+  /** explicit rotation vector ("axis_angle1..3", "rotvec_x") */
+  | `rv.${1 | 2 | 3}`
+  | `r6.${number}`
 
 export function poseComponent(tokens: string[], prev: (Comp | null)[]): Comp | null {
   if (!tokens.length) return null
@@ -46,6 +55,13 @@ export function poseComponent(tokens: string[], prev: (Comp | null)[]): Comp | n
     if (last === 'p') return 'rpy.p'
     if (last === 'y' && prev.includes('rpy.p')) return 'rpy.y'
   }
+  const joined = tokens.join('_')
+  const aa = joined.match(/(?:axis_?angle|rotvec|aa)_?([123xyz])$/)
+  if (aa) return `rv.${({ x: 1, y: 2, z: 3 } as Record<string, number>)[aa[1]] ?? Number(aa[1])}` as Comp
+  const qn = joined.match(/(?:^|_)q_?([1-4])$/)
+  if (qn) return `qn.${Number(qn[1])}` as Comp
+  const r6 = joined.match(/rot(?:ation)?_?6d_?(\d)$/)
+  if (r6) return `r6.${Number(r6[1])}` as Comp
   if (has(tokens, 'roll')) return 'rpy.r'
   if (has(tokens, 'pitch')) return 'rpy.p'
   if (has(tokens, 'yaw') && !has(tokens, 'rate')) return 'rpy.y'

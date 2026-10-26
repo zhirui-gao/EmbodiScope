@@ -3,8 +3,11 @@ import type { DatasetEntry } from '@app/store'
 import type { PoseTrack } from '@core/analysis/poses'
 import { gripperSignal, poseTrack } from '@core/analysis/poses'
 import type { CameraModel, Segment } from '@core/semantics/types'
-import type { Mat3, Vec3 } from '@core/math/rotation'
+import type { Mat3, Mat4, Vec3 } from '@core/math/rotation'
 import { apply3, transpose3 } from '@core/math/rotation'
+import { forwardKinematics, leafLinks } from '@core/robot/urdf'
+import type { JointDim, RobotBinding } from '@app/robotModel'
+import { jointDims } from '@app/robotModel'
 
 export interface TrackItem {
   seg: Segment
@@ -27,6 +30,14 @@ export interface SkeletonItem {
   bones: [number, number][]
 }
 
+export interface RobotItem {
+  name: string
+  frame: string
+  bones: [string, string][]
+  leaves: string[]
+  fk: (t: number) => Map<string, Mat4>
+}
+
 export interface SceneModel {
   frames: string[]
   parentOf: (seg: Segment) => string
@@ -34,14 +45,37 @@ export interface SceneModel {
   actionTracks: TrackItem[]
   cameras: CameraItem[]
   skeleton: SkeletonItem | null
+  robot: RobotItem | null
   length: number
+}
+
+/** URDF skeleton driven by dataset joint values (deg converted to rad). */
+export function robotItem(binding: RobotBinding, dims: JointDim[], table: FrameTable): RobotItem {
+  const byId = new Map(dims.map((d) => [d.id, d]))
+  const fk = (t: number) => {
+    const q = new Map<string, number>()
+    for (const [joint, id] of Object.entries(binding.map)) {
+      const d = id ? byId.get(id) : undefined
+      if (!d) continue
+      const v = table.value(d.feature, Math.min(t, table.length - 1), d.dim)
+      if (Number.isFinite(v)) q.set(joint, d.deg ? (v * Math.PI) / 180 : v)
+    }
+    return forwardKinematics(binding.model, q)
+  }
+  return {
+    name: binding.model.name,
+    frame: `urdf:${binding.model.root}`,
+    bones: binding.model.joints.map((j) => [j.parent, j.child] as [string, string]),
+    leaves: leafLinks(binding.model),
+    fk,
+  }
 }
 
 const SIDE_COLOR: Record<string, string> = { left: '#ff9f43', right: '#2ed1ff', center: '#c792ea' }
 
 export const parentOf = (s: Segment) => s.pose?.parent ?? (s.role === 'body_keypoint' ? 'world' : 'base')
 
-export function buildSceneModel(entry: DatasetEntry, table: FrameTable): SceneModel {
+export function buildSceneModel(entry: DatasetEntry, table: FrameTable, robot: RobotBinding | null = null): SceneModel {
   const { sem } = entry
   const segs = sem.segments
   const grippers = segs.filter((s) => s.role === 'gripper')
@@ -99,8 +133,10 @@ export function buildSceneModel(entry: DatasetEntry, table: FrameTable): SceneMo
     skeleton = { names, tracks: tracksK, bones: skeletonBones(names) }
   }
 
+  const robotModel = robot ? robotItem(robot, jointDims(entry), table) : null
   const frames = [...new Set([...tracks, ...actionTracks].map((t) => parentOf(t.seg)).concat(cameras.map((c) => parentOf(c.track.segment))))]
-  return { frames, parentOf, tracks, actionTracks, cameras, skeleton, length: table.length }
+  if (robotModel) frames.push(robotModel.frame)
+  return { frames, parentOf, tracks, actionTracks, cameras, skeleton, robot: robotModel, length: table.length }
 }
 
 /** Connectivity for ARKit-style body / hand joint names (EgoDex) and generic "<side>_<finger>_<segment>" names. */
