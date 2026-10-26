@@ -24,7 +24,7 @@ Mixing datasets is the norm in robot learning (OXE, AgiBot World, DROID, RoboMIN
 
 ## Quick start
 
-**Option A — single HTML file (no install).** Download `embodiscope.html` from the [releases](../../releases) (or build it with `npm run build:single`) and double-click it. Open a folder or drop it onto the page. Chrome / Edge recommended (folder access, AV1 decoding).
+**Option A — single HTML file (no install).** Copy `embodiscope.html` from the repository root to any computer and double-click it (regenerate it with `npm run release`). Open a folder or drop it onto the page. Chrome / Edge recommended (folder access, AV1 decoding).
 
 **Option B — hosted.** Use the GitHub Pages build of this repository; data still stays local.
 
@@ -35,7 +35,7 @@ node scripts/serve.mjs /path/to/datasets [/more/roots ...] --port 8686   # Node 
 # open http://localhost:8686  (or tunnel the port from a GPU box: ssh -L 8686:localhost:8686 gpu-box)
 ```
 
-Windows: `serve.bat D:\datasets`. Linux/macOS: `./serve.sh /data`.
+Windows: `serve.bat D:\datasets`. Linux/macOS: `./serve.sh /data`. A fresh clone needs no `npm install` or build — the server falls back to `embodiscope.html`. `--host 0.0.0.0` shares it in the LAN (and exposes the data folder to it).
 
 **Option D — development.**
 

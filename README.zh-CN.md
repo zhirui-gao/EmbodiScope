@@ -25,7 +25,7 @@ EmbodiScope 是一个运行在浏览器中的具身智能数据检测、质量�
 
 ## 快速开始
 
-**方式 A：单文件 HTML（免安装）**。从 [Releases](../../releases) 下载 `embodiscope.html`（或用 `npm run build:single` 自己构建），双击打开，选择文件夹或直接把文件夹拖进页面。推荐使用 Chrome / Edge（支持文件夹访问与 AV1 解码）。
+**方式 A：单文件 HTML（免安装）**。把仓库根目录的 `embodiscope.html` 拷到任何电脑上，双击打开，选择文件夹或直接把文件夹拖进页面。推荐使用 Chrome / Edge（支持文件夹访问与 AV1 解码）。修改代码后可以用 `npm run release` 重新生成这个文件。
 
 **方式 B：在线版**。使用本仓库的 GitHub Pages 页面，数据依然只在本地处理。
 
@@ -36,7 +36,7 @@ node scripts/serve.mjs /path/to/datasets --port 8686    # 需要 Node >= 18，�
 # 浏览器打开 http://localhost:8686（远程 GPU 机器可用 ssh -L 8686:localhost:8686 转发）
 ```
 
-Windows 下可以直接运行 `serve.bat D:\datasets`。
+Windows 下可以直接运行 `serve.bat D:\datasets`。新 clone 的仓库不需要 `npm install` 和构建，数据服务会直接使用 `embodiscope.html`。加上 `--host 0.0.0.0` 可以让局域网内的同事访问，但这会把数据目录开放给整个局域网。
 
 **方式 D：开发**：
 

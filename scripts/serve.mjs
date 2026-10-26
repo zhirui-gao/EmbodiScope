@@ -26,12 +26,17 @@ if (!roots.length) {
 }
 const here = path.dirname(fileURLToPath(import.meta.url))
 const appDir = [path.join(here, '..', 'dist'), path.join(here, '..', 'dist-single')].find((d) => existsSync(path.join(d, 'index.html')))
+// a fresh clone has no build output: fall back to the committed single-file app (no npm install needed)
+const singleFile = path.join(here, '..', 'embodiscope.html')
 const data = createDataHandler(roots)
 
 createServer(async (req, res) => {
   if (await data(req, res)) return
   if (!appDir) {
-    res.end('EmbodiScope data server is running. Build the app first (npm run build) or open the hosted app and connect to this server.')
+    if (existsSync(singleFile)) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      createReadStream(singleFile).pipe(res)
+    } else res.end('EmbodiScope data server is running. Build the app first (npm run build) or open the hosted app and connect to this server.')
     return
   }
   const url = new URL(req.url, 'http://x')

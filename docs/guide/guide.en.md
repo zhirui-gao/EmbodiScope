@@ -16,6 +16,17 @@ EmbodiScope inspects, explains, cleans and compares embodied-AI datasets (LeRobo
 
 Chrome or Edge (folder access API + AV1 decoding). Firefox / Safari work through the folder upload dialog, but AV1 videos may not play.
 
+### Running on another computer
+
+| Situation | How | Needs |
+|---|---|---|
+| Data on that computer | Copy the single file `embodiscope.html`, double-click it in Chrome / Edge, then "Open folder" | nothing |
+| Data on a server / shared drive, or very large | Copy the repository (at least `scripts/` and `embodiscope.html`), run `node scripts/serve.mjs <data folder>` on the machine that has the data (`serve.bat <folder>` on Windows) and open the printed address | Node.js ≥ 18 (no `npm install`) |
+| Remote GPU server | On the server `node scripts/serve.mjs /data --port 8686`, locally `ssh -L 8686:localhost:8686 user@server`, open http://localhost:8686 | Node.js on the server |
+| Shared in a LAN | `node scripts/serve.mjs /data --host 0.0.0.0 --port 8686`, colleagues open `http://<this-ip>:8686` | Node.js; exposes the data folder to the network |
+| Hosted | push to GitHub and enable Pages; any computer opens the URL, data is still read locally | nothing |
+| Development | `npm install`, `npm run dev`; `npm run release` regenerates `embodiscope.html` | Node.js + npm |
+
 ## 2. Data sources
 
 | Source | When | Notes |

@@ -16,6 +16,17 @@ EmbodiScope 用来在训练之前检查、理解、清洗和对比具身智能�
 
 Chrome 或 Edge（支持文件夹访问 API 与 AV1 解码）。Firefox / Safari 可以通过「选择文件夹」上传对话框使用，但 AV1 视频可能无法播放。
 
+### 在其他电脑上运行
+
+| 场景 | 做法 | 需要安装 |
+|---|---|---|
+| 数据就在这台电脑上 | 把 `embodiscope.html` 一个文件拷过去，用 Chrome / Edge 双击打开，再点「打开本地文件夹」 | 无 |
+| 数据在服务器 / 共享盘上，或数据很大 | 拷贝整个仓库（或至少 `scripts/` 和 `embodiscope.html`），在数据所在的机器上运行 `node scripts/serve.mjs <数据目录>`（Windows 可以用 `serve.bat <数据目录>`），然后用浏览器打开提示的地址 | Node.js ≥ 18（不需要 `npm install`） |
+| 远程 GPU 服务器 | 在服务器上运行 `node scripts/serve.mjs /data --port 8686`，本地执行 `ssh -L 8686:localhost:8686 user@server`，再打开 http://localhost:8686 | 服务器上需要 Node.js |
+| 局域网多人共用 | `node scripts/serve.mjs /data --host 0.0.0.0 --port 8686`，同事访问 `http://<本机IP>:8686` | Node.js；注意这样会把数据目录开放给整个局域网 |
+| 在线版 | 推送到 GitHub 后启用 Pages，任何电脑打开网址即可，数据仍在本地读取 | 无 |
+| 二次开发 | `npm install` 后运行 `npm run dev`；修改后执行 `npm run release` 重新生成 `embodiscope.html` | Node.js + npm |
+
 ## 2. 数据来源
 
 | 方式 | 适用场景 | 说明 |
