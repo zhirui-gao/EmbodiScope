@@ -4,8 +4,6 @@ import { useL } from '@app/i18n'
 import { RemoteDialog, useOpenFolder } from './OpenControls'
 import { HelpDialog } from './HelpDialog'
 
-export const REPO_URL = 'https://github.com/embodiscope/embodiscope'
-
 export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   const L = useL()
   const lang = useStore((s) => s.lang)
