@@ -23,7 +23,7 @@ export async function openSource(source: FileSource) {
       currentId: s.currentId && ids.has(s.currentId) ? null : s.currentId,
     }))
   }
-  st.set({ busy: `Scanning ${source.label} …` })
+  st.set({ busy: st.lang === 'zh' ? `正在扫描 ${source.label} …` : `Scanning ${source.label} …` })
   try {
     const found = await discoverDatasets(source)
     if (!found.length) {

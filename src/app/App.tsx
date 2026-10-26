@@ -39,7 +39,7 @@ export function App() {
     if (base)
       ServerSource.open(base)
         .then((src) => openSource(src))
-        .catch(() => param && useStore.getState().notify(`Cannot reach EmbodiScope server ${param}`, 'error'))
+        .catch(() => param && useStore.getState().notify(useStore.getState().lang === 'zh' ? `无法连接数据服务 ${param}` : `Cannot reach EmbodiScope server ${param}`, 'error'))
     if (hf) HfHubSource.open(hf).then((src) => openSource(src)).catch((e) => useStore.getState().notify(String(e.message), 'error'))
   }, [])
 
@@ -67,7 +67,6 @@ export function App() {
     ['quality', L('Quality', '质量检测')],
     ['compare', L('Compare', '数据集对比')],
     ['ai', L('AI lab', 'AI 标注')],
-    ['guide', L('Guide', '使用说明')],
   ]
   const free = (t: Tab) => t === 'compare' || t === 'ai' || t === 'guide'
 

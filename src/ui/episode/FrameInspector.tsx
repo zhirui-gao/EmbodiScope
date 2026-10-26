@@ -3,11 +3,13 @@ import type { DatasetSemantics } from '@core/semantics/types'
 import { useFrame } from '@app/playback'
 import { ROLE_LABEL, useL, useLabel } from '@app/i18n'
 import { fmtNum } from '../common'
+import { useTerm } from '@app/terms'
 import { toMatrix, matToQuat } from '@core/math/rotation'
 
 export function FrameInspector({ table, sem, extra }: { table: FrameTable; sem: DatasetSemantics; extra: Record<string, unknown> }) {
   const L = useL()
   const label = useLabel()
+  const T = useTerm()
   const frame = useFrame(120)
   const segs = sem.segments.filter((s) => s.end > s.start && table.has(s.feature) && s.role !== 'body_keypoint')
   return (
@@ -33,7 +35,7 @@ export function FrameInspector({ table, sem, extra }: { table: FrameTable; sem: 
                   <td className="nowrap">
                     <div className="mono tiny">{s.id}</div>
                     <div className="tiny muted">
-                      {s.stream} · {label(ROLE_LABEL, s.role)} {s.side ?? ''}
+                      {T(s.stream)} · {label(ROLE_LABEL, s.role)} {T(s.side)}
                     </div>
                   </td>
                   <td className="mono tiny">

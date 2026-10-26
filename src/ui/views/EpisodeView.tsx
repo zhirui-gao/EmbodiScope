@@ -14,6 +14,7 @@ import { takePendingFrame } from '@app/deeplink'
 import { AnnotationEditor } from '../episode/AnnotationEditor'
 import { RobotPanel } from '../episode/RobotPanel'
 import { useRobot } from '@app/robotModel'
+import { useTerm } from '@app/terms'
 import { Timeline, Transport, useCurrentSegments } from '../episode/Timeline'
 import { buildTracks } from '../episode/tracks'
 import { buildChartGroups } from '../episode/charts'
@@ -68,7 +69,9 @@ export function EpisodeView({ entry }: { entry: DatasetEntry }) {
   const robot = useRobot(entry)
   const model = useMemo(() => (table ? buildSceneModel(entry, table, robot) : null), [table, entry.version, robot, robot?.map])
   const tracks = useMemo(() => (table && ep ? buildTracks(entry, ep.index, table, annotation) : []), [table, ep, annotation, entry.version])
-  const groups = useMemo(() => (table ? buildChartGroups(entry.sem, table) : []), [table, entry.version])
+  const lang = useStore((s) => s.lang)
+  const T = useTerm()
+  const groups = useMemo(() => (table ? buildChartGroups(entry.sem, table, lang) : []), [table, entry.version, lang])
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [showInspector, setShowInspector] = useState(false)
   const current = useCurrentSegments(tracks)
@@ -96,7 +99,9 @@ export function EpisodeView({ entry }: { entry: DatasetEntry }) {
         <button className="small" disabled={idx >= available.length - 1} onClick={() => selectEpisode(available[idx + 1].index)} title="]">
           ›
         </button>
-        <Badge>{table.length} {L('frames', '帧')}</Badge>
+        <Badge title={`${L('loaded in', '加载耗时')} ${Math.round(data.loadMs)} ms`}>
+          {table.length} {L('frames', '帧')}
+        </Badge>
         <Badge>{fmtDuration(table.length / fps)}</Badge>
         <span className="grow ellipsis" title={ep.tasks.join('\n')} style={{ fontSize: 13 }}>
           💬 {ep.tasks.join(' · ') || <span className="faint">{L('(no instruction)', '（无指令）')}</span>}
@@ -106,23 +111,17 @@ export function EpisodeView({ entry }: { entry: DatasetEntry }) {
           <input type="checkbox" checked={showOverlay} onChange={(e) => updateSettings((s) => ({ ...s, showOverlay: e.target.checked }))} />
           {L('projection overlay', '投影叠加')}
         </label>
-        <span className="faint tiny nowrap">{Math.round(data.loadMs)} ms</span>
       </div>
-      {jointOnly && (
-        <div style={{ marginBottom: 6 }}>
-          <RobotPanel entry={entry} />
-        </div>
-      )}
       {current.length > 0 && (
         <div className="row wrap" style={{ marginBottom: 6 }}>
           {current.map((c) => (
             <span key={c.track} className="badge accent" title={c.track}>
-              ▸ {c.seg!.text}
+              ▸ {T(c.seg!.text)}
             </span>
           ))}
         </div>
       )}
-      <div className={`episode-layout ${has3d ? '' : 'no3d'}`} style={{ height: 'auto' }}>
+      <div className={`episode-layout ${has3d || jointOnly ? '' : 'no3d'}`} style={{ height: 'auto' }}>
         <div className="col" style={{ minWidth: 0 }}>
           {cams.length > 0 ? (
             <div className={`video-grid ${cams.length > 2 ? 'many' : ''}`} style={{ gridTemplateColumns: `repeat(${camCols}, minmax(0, 1fr))` }}>
@@ -139,11 +138,23 @@ export function EpisodeView({ entry }: { entry: DatasetEntry }) {
           )}
           <Transport length={table.length} fps={fps} />
         </div>
-        {has3d && model && (
-          <div style={{ minHeight: 360, display: 'flex' }}>
-            <div style={{ flex: 1 }}>
-              <Scene3D model={model} />
-            </div>
+        {(has3d || jointOnly) && model && (
+          <div className="col" style={{ minHeight: 360, gap: 6 }}>
+            {jointOnly && <RobotPanel entry={entry} expanded={!has3d} />}
+            {has3d ? (
+              <div style={{ flex: 1, display: 'flex', minHeight: 320 }}>
+                <div style={{ flex: 1 }}>
+                  <Scene3D model={model} />
+                </div>
+              </div>
+            ) : (
+              <div className="panel panel-body muted small" style={{ flex: 1 }}>
+                {L(
+                  'This dataset only records joint angles. Load the robot URDF above to see it in 3D (forward kinematics).',
+                  '该数据集只记录关节角。在上方加载机器人 URDF，即可通过正运动学在 3D 中查看机器人（可选）。',
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

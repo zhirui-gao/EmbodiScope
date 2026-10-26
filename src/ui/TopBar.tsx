@@ -28,9 +28,14 @@ export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
       <button className={tab === 'guide' ? '' : 'ghost'} onClick={() => set({ tab: tab === 'guide' ? 'overview' : 'guide' })}>
         📖 {L('Guide', '使用说明')}
       </button>
-      <button className="ghost" onClick={() => set({ lang: lang === 'zh' ? 'en' : 'zh' })} title={L('Interface language', '界面语言')}>
-        {lang === 'zh' ? 'EN' : '中文'}
-      </button>
+      <div className="seg-toggle" title={L('Language of the whole interface', '整个界面的语言')}>
+        <button className={lang === 'zh' ? 'on' : ''} onClick={() => set({ lang: 'zh' })}>
+          中文
+        </button>
+        <button className={lang === 'en' ? 'on' : ''} onClick={() => set({ lang: 'en' })}>
+          EN
+        </button>
+      </div>
       {element}
       {remote && <RemoteDialog onClose={() => setRemote(false)} />}
     </div>

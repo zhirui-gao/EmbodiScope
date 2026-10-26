@@ -6,8 +6,8 @@ import { Markdown, parseHeadings } from '../Markdown'
 
 /** Full user guide rendered from docs/guide/*.md (the same files are readable on GitHub). */
 export function GuideView({ onClose }: { onClose?: () => void }) {
-  const uiLang = useStore((s) => s.lang)
-  const [lang, setLang] = useState<'zh' | 'en'>(uiLang)
+  // follows the global language switch in the top bar
+  const lang = useStore((s) => s.lang)
   const [q, setQ] = useState('')
   const body = useRef<HTMLDivElement>(null)
   const source = lang === 'zh' ? guideZh : guideEn
@@ -40,15 +40,7 @@ export function GuideView({ onClose }: { onClose?: () => void }) {
     <div className="guide">
       <aside className="guide-toc">
         <div className="row" style={{ marginBottom: 8 }}>
-          <div className="seg-toggle">
-            <button className={zh ? 'on' : ''} onClick={() => setLang('zh')}>
-              中文
-            </button>
-            <button className={!zh ? 'on' : ''} onClick={() => setLang('en')}>
-              English
-            </button>
-          </div>
-          <span className="spacer" />
+          <h4 className="grow">{zh ? '目录' : 'Contents'}</h4>
           {onClose && (
             <button className="ghost small" onClick={onClose} title={zh ? '关闭' : 'Close'}>
               ✕

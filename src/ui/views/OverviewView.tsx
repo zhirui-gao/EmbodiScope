@@ -9,10 +9,12 @@ import { Badge, Histogram, Panel, ScoreBar, Stat, fmtBytes, fmtDuration, fmtNum 
 import { IssueList } from './QualityView'
 import { FrameTree } from './SchemaView'
 import { datasetMarkdown } from '@app/report'
+import { useTerm } from '@app/terms'
 
 export function OverviewView({ entry }: { entry: DatasetEntry }) {
   const L = useL()
   const label = useLabel()
+  const T = useTerm()
   const lang = useStore((s) => s.lang)
   const set = useStore((s) => s.set)
   const { ds, sem, card } = entry
@@ -57,10 +59,10 @@ export function OverviewView({ entry }: { entry: DatasetEntry }) {
             <span className="mono">{ds.robotType}</span>
             <span>{L('Embodiment', '本体类型')}</span>
             <span>
-              {label(EMBODIMENT_LABEL, sem.embodiment)} <span className="faint tiny">{sem.embodimentEvidence.join('; ')}</span>
+              {label(EMBODIMENT_LABEL, sem.embodiment)} <span className="faint tiny">{sem.embodimentEvidence.map(T).join('; ')}</span>
             </span>
             <span>{L('End effector', '末端执行器')}</span>
-            <span>{sem.endEffector}</span>
+            <span>{T(sem.endEffector)}</span>
             <span>{L('State', '状态')}</span>
             <span>
               <b>{card.stateDim}D</b> <span className="muted tiny">{card.stateComposition}</span>
@@ -71,7 +73,7 @@ export function OverviewView({ entry }: { entry: DatasetEntry }) {
             </span>
             <span>{L('Action space', '动作空间')}</span>
             <span>
-              {card.actionSpace} · <span className="muted">{card.actionType}</span>
+              {T(card.actionSpace)} · <span className="muted">{T(card.actionType)}</span>
             </span>
           </div>
         </Panel>
@@ -88,7 +90,7 @@ export function OverviewView({ entry }: { entry: DatasetEntry }) {
               {L('length', '长度')} {card.lengthUnits} · {L('angle', '角度')} {card.angleUnits}
             </span>
             <span>{L('Gripper', '夹爪')}</span>
-            <span>{card.gripperPolarity.replace(/open_high/g, L('1 = open', '1 = 张开')).replace(/closed_high/g, L('1 = closed', '1 = 闭合'))}</span>
+            <span>{T(card.gripperPolarity.replace(/open_high/g, '1 = open').replace(/closed_high/g, '1 = closed'))}</span>
             <span>{L('Camera model', '相机模型')}</span>
             <span>
               {sem.conventions.cameraConvention ?? '—'} · {L('intrinsics', '内参')} {card.hasIntrinsics ? '✓' : '✗'} · {L('extrinsics', '外参')} {card.hasExtrinsics ? '✓' : '✗'} · {L('depth', '深度')} {card.hasDepth ? '✓' : '✗'}
@@ -163,7 +165,7 @@ export function OverviewView({ entry }: { entry: DatasetEntry }) {
               {sem.cameras.map((c) => (
                 <tr key={c.key}>
                   <td className="mono">{c.key}</td>
-                  <td>{c.mount}</td>
+                  <td>{T(c.mount)}</td>
                   <td>{c.width && c.height ? `${c.width}×${c.height}` : '?'}</td>
                   <td>{c.codec ?? <span className="faint">{L('scan to probe', '扫描后获取')}</span>}</td>
                   <td>{c.fps ?? '—'}</td>
@@ -222,7 +224,7 @@ export function OverviewView({ entry }: { entry: DatasetEntry }) {
                   <td className="tiny">
                     {segs.map((s) => (
                       <div key={s.id}>
-                        <Badge kind={s.role === 'unknown' ? 'warn' : s.overridden ? 'accent' : undefined}>{label(ROLE_LABEL, s.role)}</Badge> {s.side ?? ''} {s.start || s.end !== f.dim ? <span className="faint">[{s.start}:{s.end}]</span> : null}{' '}
+                        <Badge kind={s.role === 'unknown' ? 'warn' : s.overridden ? 'accent' : undefined}>{label(ROLE_LABEL, s.role)}</Badge> {T(s.side)} {s.start || s.end !== f.dim ? <span className="faint">[{s.start}:{s.end}]</span> : null}{' '}
                         {s.pose?.rot && <span className="muted">{s.pose.rot.repr}{s.pose.rot.ambiguous ? '?' : ''}</span>} {s.pose?.parent && <span className="faint">→{s.pose.parent}</span>}
                       </div>
                     ))}

@@ -12,6 +12,7 @@ import { matchingProfiles } from '@core/semantics/profiles'
 import { Badge, Panel } from '../common'
 import { runFormatAnalysis } from './AiView'
 import { DimStats } from './DimStats'
+import { useTerm } from '@app/terms'
 
 const ROLES = Object.keys(ROLE_LABEL) as Role[]
 
@@ -49,6 +50,7 @@ export function FrameTree({ sem }: { sem: DatasetSemantics }) {
 export function SchemaView({ entry }: { entry: DatasetEntry }) {
   const L = useL()
   const label = useLabel()
+  const T = useTerm()
   const lang = useStore((s) => s.lang)
   const { ds, sem } = entry
   const [showIndex, setShowIndex] = useState(false)
@@ -144,7 +146,7 @@ export function SchemaView({ entry }: { entry: DatasetEntry }) {
           <thead>
             <tr>
               <th>{L('Segment', '片段')}</th>
-              <th>stream</th>
+              <th>{L('Stream', '数据流')}</th>
               <th>{L('Role', '角色')}</th>
               <th>{L('Side', '侧')}</th>
               <th>{L('Rotation', '旋转表示')}</th>
@@ -165,7 +167,7 @@ export function SchemaView({ entry }: { entry: DatasetEntry }) {
                     {s.names.length > 8 ? ' …' : ''}
                   </div>
                 </td>
-                <td className="tiny">{s.stream}</td>
+                <td className="tiny">{T(s.stream)}</td>
                 <td>
                   <select className="seg-select" value={s.role} onChange={(e) => change(s, { role: e.target.value as Role })}>
                     {ROLES.map((r) => (
@@ -179,9 +181,9 @@ export function SchemaView({ entry }: { entry: DatasetEntry }) {
                 <td>
                   <select className="seg-select" value={s.side ?? ''} onChange={(e) => change(s, { side: (e.target.value || null) as any })}>
                     <option value="">—</option>
-                    <option value="left">left</option>
-                    <option value="right">right</option>
-                    <option value="center">center</option>
+                    <option value="left">{T('left')}</option>
+                    <option value="right">{T('right')}</option>
+                    <option value="center">{T('center')}</option>
                   </select>
                 </td>
                 <td>
@@ -206,7 +208,7 @@ export function SchemaView({ entry }: { entry: DatasetEntry }) {
                   )}
                   {s.pose?.rot?.ambiguous && <span title="ambiguous"> ⚠</span>}
                 </td>
-                <td className="mono tiny">{s.pose?.parent ? `${s.pose.child ?? ''} → ${s.pose.parent}` : s.pose ? 'implicit' : ''}</td>
+                <td className="mono tiny">{s.pose?.parent ? `${s.pose.child ?? ''} → ${s.pose.parent}` : s.pose ? T('implicit') : ''}</td>
                 <td className="tiny">{s.units ? Object.entries(s.units).map(([k, v]) => `${k}:${v}`).join(' ') : ''}</td>
                 <td>
                   {s.role === 'gripper' && (
@@ -218,9 +220,9 @@ export function SchemaView({ entry }: { entry: DatasetEntry }) {
                   )}
                   {(s.stream === 'action' || s.stream === 'teleop') && (
                     <select className="seg-select" value={s.actionType ?? 'unknown'} onChange={(e) => change(s, { actionType: e.target.value as any })}>
-                      <option value="absolute">absolute</option>
-                      <option value="delta">delta</option>
-                      <option value="velocity">velocity</option>
+                      <option value="absolute">{T('absolute')}</option>
+                      <option value="delta">{T('delta')}</option>
+                      <option value="velocity">{T('velocity')}</option>
                       <option value="unknown">?</option>
                     </select>
                   )}
@@ -259,10 +261,10 @@ export function SchemaView({ entry }: { entry: DatasetEntry }) {
               {sem.cameras.map((c) => (
                 <tr key={c.key}>
                   <td className="mono">{c.name}</td>
-                  <td>{c.mount}</td>
+                  <td>{T(c.mount)}</td>
                   <td className="mono tiny">{c.intrinsics?.feature ?? '—'}</td>
                   <td className="mono tiny">{c.extrinsics ? `${c.extrinsics.segment} → ${c.extrinsics.parent ?? '?'}` : '—'}</td>
-                  <td>{c.convention}</td>
+                  <td>{T(c.convention)}</td>
                 </tr>
               ))}
             </tbody>

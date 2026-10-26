@@ -32,15 +32,17 @@ export function FlagBar({ datasetId, episode }: { datasetId: string; episode: nu
       {btn('keep', '✓', L('Keep', '保留'), 'G')}
       {btn('exclude', '✗', L('Exclude', '剔除'), 'B')}
       {btn('review', '?', L('Review', '待复查'), 'R')}
-      <input
-        className="small"
-        style={{ width: 160 }}
-        placeholder={L('note …', '备注 …')}
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        onBlur={() => current && note !== (current.note ?? '') && setFlags(datasetId, [episode], { flag: current.flag, note })}
-        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-      />
+      {current && (
+        <input
+          className="small"
+          style={{ width: 150 }}
+          placeholder={L('note …', '备注 …')}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={() => note !== (current.note ?? '') && setFlags(datasetId, [episode], { flag: current.flag, note })}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        />
+      )}
     </div>
   )
 }

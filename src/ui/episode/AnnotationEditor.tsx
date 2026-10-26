@@ -7,6 +7,7 @@ import type { FrameTable } from '@core/data/frameTable'
 import type { SubtaskSegment } from '@core/analysis/summary'
 import { metadataSubtasks } from '@core/analysis/summary'
 import { heuristicSegments } from '@core/analysis/segmentation'
+import { term } from '@app/terms'
 
 /**
  * Manual subtask annotation. Segments are always contiguous and cover [0, T): editing works on boundaries
@@ -14,6 +15,7 @@ import { heuristicSegments } from '@core/analysis/segmentation'
  */
 export function AnnotationEditor({ entry, episode, table }: { entry: DatasetEntry; episode: number; table: FrameTable }) {
   const L = useL()
+  const lang = useStore((s) => s.lang)
   const ann = useStore((s) => s.annotations[entry.id]?.[episode])
   const setAnnotation = useStore((s) => s.setAnnotation)
   const frame = useFrame(100)
@@ -34,7 +36,8 @@ export function AnnotationEditor({ entry, episode, table }: { entry: DatasetEntr
       updatedAt: Date.now(),
     })
   }
-  const seed = (from: SubtaskSegment[]) => save(from.length ? from.map((s) => ({ ...s, source: 'manual' })) : [{ start: 0, end: T, text: '', source: 'manual' }])
+  const seed = (from: SubtaskSegment[]) =>
+    save(from.length ? from.map((s) => ({ ...s, text: term(lang, s.text), source: 'manual' })) : [{ start: 0, end: T, text: '', source: 'manual' }])
   const at = segs.findIndex((s) => frame >= s.start && frame < s.end)
   const split = () => {
     if (at < 0 || frame <= segs[at].start) return

@@ -79,6 +79,7 @@ export function Scene3D({ model }: { model: SceneModel }) {
   const [showAction, setShowAction] = useState(false)
   const [showCams, setShowCams] = useState(true)
   const [showTrail, setShowTrail] = useState(true)
+  const [menu, setMenu] = useState(false)
   useEffect(() => setFrame(defaultFrame), [defaultFrame])
 
   const visible = useMemo(() => {
@@ -429,16 +430,6 @@ export function Scene3D({ model }: { model: SceneModel }) {
             ))}
           </select>
         )}
-        <select className="small seg-select" value={upAxis} onChange={(e) => updateSettings((s) => ({ ...s, upAxis: e.target.value as 'z' | 'y' }))} title={L('up axis', '竖直轴')}>
-          <option value="z">Z-up</option>
-          <option value="y">Y-up</option>
-        </select>
-        <button className={`small ${showTrail ? '' : 'ghost'}`} onClick={() => setShowTrail((v) => !v)}>
-          {L('trail', '轨迹')}
-        </button>
-        <button className={`small ${ghosts ? '' : 'ghost'}`} onClick={() => updateSettings((s) => ({ ...s, showGhostFrames: !s.showGhostFrames }))}>
-          {L('ghost axes', '姿态残影')}
-        </button>
         <select
           className="small seg-select"
           value={horizon}
@@ -451,16 +442,41 @@ export function Scene3D({ model }: { model: SceneModel }) {
             </option>
           ))}
         </select>
-        {model.actionTracks.length > 0 && (
-          <button className={`small ${showAction ? '' : 'ghost'}`} onClick={() => setShowAction((v) => !v)}>
-            {L('action target', '动作目标')}
+        <div style={{ position: 'relative' }}>
+          <button className="small" onClick={() => setMenu((v) => !v)} title={L('Display options', '显示选项')}>
+            ⚙ {L('Display', '显示')}
           </button>
-        )}
-        {model.cameras.length > 0 && (
-          <button className={`small ${showCams ? '' : 'ghost'}`} onClick={() => setShowCams((v) => !v)}>
-            {L('cameras', '相机')}
-          </button>
-        )}
+          {menu && (
+            <div className="panel" style={{ position: 'absolute', right: 0, top: 26, zIndex: 5, padding: 8, width: 180 }} onMouseLeave={() => setMenu(false)}>
+              <div className="col small" style={{ gap: 6 }}>
+                <label className="row">
+                  {L('Up axis', '竖直轴')}
+                  <span className="spacer" />
+                  <select className="small seg-select" value={upAxis} onChange={(e) => updateSettings((s) => ({ ...s, upAxis: e.target.value as 'z' | 'y' }))}>
+                    <option value="z">Z-up</option>
+                    <option value="y">Y-up</option>
+                  </select>
+                </label>
+                <label className="row">
+                  <input type="checkbox" checked={showTrail} onChange={() => setShowTrail((v) => !v)} /> {L('Trajectory', '轨迹')}
+                </label>
+                <label className="row">
+                  <input type="checkbox" checked={ghosts} onChange={() => updateSettings((s) => ({ ...s, showGhostFrames: !s.showGhostFrames }))} /> {L('Orientation ghosts', '姿态残影')}
+                </label>
+                {model.actionTracks.length > 0 && (
+                  <label className="row">
+                    <input type="checkbox" checked={showAction} onChange={() => setShowAction((v) => !v)} /> {L('Action targets', '动作目标')}
+                  </label>
+                )}
+                {model.cameras.length > 0 && (
+                  <label className="row">
+                    <input type="checkbox" checked={showCams} onChange={() => setShowCams((v) => !v)} /> {L('Cameras', '相机')}
+                  </label>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

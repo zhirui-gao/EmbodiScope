@@ -75,7 +75,7 @@ export function Sidebar() {
                         {d.name}
                       </span>
                       {d.status === 'loading' && <div className="spinner" />}
-                      {d.status === 'error' && <Badge kind="err">error</Badge>}
+                      {d.status === 'error' && <Badge kind="err">{L('error', '错误')}</Badge>}
                       {e && <Badge kind={e.ds.version.startsWith('v3') ? 'v3' : 'info'}>{e.ds.version}</Badge>}
                     </div>
                     {e ? (

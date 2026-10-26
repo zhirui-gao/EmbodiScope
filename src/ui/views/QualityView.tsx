@@ -7,6 +7,7 @@ import { cancelScan, scanDataset } from '@app/scan'
 import type { Issue, Severity } from '@core/analysis/qa'
 import type { EpisodeMetrics } from '@core/analysis/episodeMetrics'
 import { Badge, Histogram, PALETTE, Panel, fmtNum, useSorted } from '../common'
+import { term } from '@app/terms'
 
 export function IssueList({ issues, limit, onEpisode, onFlag }: { issues: Issue[]; limit?: number; onEpisode?: (e: number) => void; onFlag?: (eps: number[]) => void }) {
   const lang = useStore((s) => s.lang)
@@ -21,7 +22,7 @@ export function IssueList({ issues, limit, onEpisode, onFlag }: { issues: Issue[
         <div className="row">
           {(['all', 'error', 'warning', 'info'] as const).map((s) => (
             <button key={s} className={`small ${filter === s ? 'primary' : ''}`} onClick={() => setFilter(s)}>
-              {s === 'all' ? L('All', '全部') : s} {s !== 'all' ? `(${counts[s]})` : `(${issues.length})`}
+              {s === 'all' ? L('All', '全部') : term(lang, s)} {s !== 'all' ? `(${counts[s]})` : `(${issues.length})`}
             </button>
           ))}
         </div>
@@ -30,8 +31,8 @@ export function IssueList({ issues, limit, onEpisode, onFlag }: { issues: Issue[
       {shown.map((i, k) => (
         <div key={k} className={`issue ${i.severity}`}>
           <div className="row">
-            <Badge kind={i.severity === 'error' ? 'err' : i.severity === 'warning' ? 'warn' : 'info'}>{i.severity}</Badge>
-            <Badge>{i.category}</Badge>
+            <Badge kind={i.severity === 'error' ? 'err' : i.severity === 'warning' ? 'warn' : 'info'}>{term(lang, i.severity)}</Badge>
+            <Badge>{term(lang, i.category)}</Badge>
             <b className="grow">{i.title[lang]}</b>
             {onFlag && i.episodes?.length ? (
               <button className="small ghost" onClick={() => onFlag(i.episodes!)} title={L('Flag all affected episodes for review', '将所有相关 episode 标为待复查')}>
@@ -105,6 +106,7 @@ export function workspacePoints(metrics: EpisodeMetrics[]) {
 
 export function QualityView({ entry }: { entry: DatasetEntry }) {
   const L = useL()
+  const lang = useStore((s) => s.lang)
   const scan = entry.scan
   const metrics = scan?.metrics ?? []
   const rows = useMemo(
@@ -147,12 +149,12 @@ export function QualityView({ entry }: { entry: DatasetEntry }) {
         <div className="panel panel-body" style={{ marginBottom: 12 }}>
           <div className="row small">
             <span>
-              {scan.status} · {scan.done}/{scan.total} episodes
+              {term(lang, scan.status)} · {scan.done}/{scan.total} episodes
             </span>
             {scan.ms && <span className="muted">· {(scan.ms / 1000).toFixed(1)} s</span>}
             {scan.cachedAt && <Badge kind="info">{L('restored from cache', '来自缓存')} · {new Date(scan.cachedAt).toLocaleString()}</Badge>}
             {scan.error && <Badge kind="err">{scan.error}</Badge>}
-            {metrics.some((m) => m.error) && <Badge kind="warn">{metrics.filter((m) => m.error).length} failed</Badge>}
+            {metrics.some((m) => m.error) && <Badge kind="warn">{metrics.filter((m) => m.error).length} {L('failed', '个失败')}</Badge>}
           </div>
           <div className="progress" style={{ marginTop: 6 }}>
             <div style={{ width: `${(scan.done / Math.max(1, scan.total)) * 100}%` }} />

@@ -1,6 +1,8 @@
 import type { DatasetEntry } from './store'
 import type { DatasetCard } from '@core/analysis/summary'
 import { ROTATION_LABELS } from '@core/math/rotation'
+import { term } from './terms'
+import { LEVEL_LABEL } from './i18n'
 
 const n = (x: number, d = 2) => (Number.isFinite(x) ? x.toFixed(d) : '—')
 
@@ -39,11 +41,13 @@ export function datasetMarkdown(entry: DatasetEntry, lang: 'zh' | 'en'): string 
 
 export function cardRows(c: DatasetCard, lang: 'zh' | 'en'): [string, string][] {
   const zh = lang === 'zh'
+  const T = (s: string) => term(lang, s)
+  const level = (l: string) => (zh ? LEVEL_LABEL[l]?.[1] : LEVEL_LABEL[l]?.[0]) ?? l
   return [
     [zh ? '版本' : 'Version', c.version],
     ['robot_type', c.robotType],
-    [zh ? '本体' : 'Embodiment', c.embodiment + (c.mobileBase ? ' + mobile base' : '')],
-    [zh ? '末端执行器' : 'End effector', c.endEffector],
+    [zh ? '本体' : 'Embodiment', T(c.embodiment) + (c.mobileBase ? ` + ${T('mobile base')}` : '')],
+    [zh ? '末端执行器' : 'End effector', T(c.endEffector)],
     ['fps', String(c.fps)],
     ['Episodes', `${c.episodes}${c.availableEpisodes !== c.episodes ? ` (${c.availableEpisodes} local)` : ''}`],
     [zh ? '帧数' : 'Frames', String(c.frames)],
@@ -52,14 +56,14 @@ export function cardRows(c: DatasetCard, lang: 'zh' | 'en'): [string, string][] 
     [zh ? '相机' : 'Cameras', c.cameras.map((x) => `${x.name} ${x.resolution} ${x.codec}`).join('; ')],
     [zh ? '状态维度' : 'State dim', `${c.stateDim}: ${c.stateComposition}`],
     [zh ? '动作维度' : 'Action dim', `${c.actionDim}: ${c.actionComposition}`],
-    [zh ? '动作空间' : 'Action space', `${c.actionSpace} (${c.actionType})`],
+    [zh ? '动作空间' : 'Action space', `${T(c.actionSpace)} (${T(c.actionType)})`],
     [zh ? '旋转表示' : 'Rotation', c.rotationReprs.map((r) => ROTATION_LABELS[r]).join('; ') || '—'],
     [zh ? '四元数顺序' : 'Quaternion order', c.quaternionOrder],
     [zh ? '参考系' : 'Reference frames', c.referenceFrames.join(', ') || '—'],
     [zh ? '单位' : 'Units', `${c.lengthUnits} / ${c.angleUnits}`],
-    [zh ? '夹爪极性' : 'Gripper polarity', c.gripperPolarity],
+    [zh ? '夹爪极性' : 'Gripper polarity', T(c.gripperPolarity)],
     [zh ? '内参/外参/深度' : 'Intrinsics/extrinsics/depth', `${c.hasIntrinsics ? '✓' : '✗'} / ${c.hasExtrinsics ? '✓' : '✗'} / ${c.hasDepth ? '✓' : '✗'}`],
-    [zh ? '标注层级' : 'Annotation levels', c.annotation.levels.join(', ')],
+    [zh ? '标注层级' : 'Annotation levels', c.annotation.levels.map(level).join(zh ? '、' : ', ')],
     [zh ? '标注精细度评分' : 'Granularity score', `${n(c.annotation.granularityScore, 1)} / 5`],
     [zh ? '不同指令数' : 'Unique instructions', String(c.annotation.uniqueInstructions)],
     [zh ? '约定声明' : 'Conventions declared', c.conventionDeclared ? '✓' : '✗'],

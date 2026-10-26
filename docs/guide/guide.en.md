@@ -2,7 +2,7 @@
 
 EmbodiScope inspects, explains, cleans and compares embodied-AI datasets (LeRobot v2.0 / v2.1 / v3.0 and GR00T-flavoured LeRobot) before you train on them. Everything runs locally in your browser — nothing is uploaded.
 
-> The UI language is switched at the top right; this guide has its own language switch at the top of the page.
+> The "中文 / EN" switch at the top right changes the language of the whole interface, including this guide.
 
 ## 1. Quick start
 

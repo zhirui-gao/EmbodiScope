@@ -124,7 +124,7 @@ export interface AppState {
 const initialLang = (() => {
   const saved = localStorage.getItem('embodiscope.lang')
   if (saved === 'zh' || saved === 'en') return saved
-  return navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  return 'zh'
 })()
 
 export const useStore = create<AppState>((set, get) => ({

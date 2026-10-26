@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { playback, useFrame, usePlaying } from '@app/playback'
 import { useL } from '@app/i18n'
 import type { TimelineTrack } from './tracks'
+import { useTerm } from '@app/terms'
 
 export function Transport({ length, fps }: { length: number; fps: number }) {
   const L = useL()
@@ -45,6 +46,7 @@ export function Transport({ length, fps }: { length: number; fps: number }) {
 
 export function Timeline({ tracks, length }: { tracks: TimelineTrack[]; length: number }) {
   const L = useL()
+  const T = useTerm()
   const area = useRef<HTMLDivElement>(null)
   const cursor = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState<string | null>(null)
@@ -66,7 +68,7 @@ export function Timeline({ tracks, length }: { tracks: TimelineTrack[]; length: 
         <div className="col" style={{ gap: 2, paddingTop: 2 }}>
           {tracks.map((t) => (
             <div key={t.id} className="track-label" style={{ height: 20, lineHeight: '20px' }} title={t.label}>
-              {t.label}
+              {T(t.label)}
             </div>
           ))}
         </div>
@@ -92,11 +94,11 @@ export function Timeline({ tracks, length }: { tracks: TimelineTrack[]; length: 
                   key={i}
                   className="seg"
                   style={{ left: `${(s.start / length) * 100}%`, width: `${((s.end - s.start) / length) * 100}%`, background: s.color }}
-                  onMouseEnter={() => setHover(`${t.label}: [${s.start}–${s.end}) ${s.text}${s.detail ? ' — ' + s.detail : ''}`)}
+                  onMouseEnter={() => setHover(`${T(t.label)}: [${s.start}–${s.end}) ${T(s.text)}${s.detail ? ' — ' + s.detail : ''}`)}
                   onMouseLeave={() => setHover(null)}
                   onDoubleClick={() => playback.seek(s.start)}
                 >
-                  {s.text}
+                  {T(s.text)}
                 </div>
               ))}
             </div>

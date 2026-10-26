@@ -8,6 +8,10 @@ import type { DatasetCard } from '@core/analysis/summary'
 import { scanDataset } from '@app/scan'
 import { Histogram, PALETTE, Panel } from '../common'
 import { WorkspacePlot } from './QualityView'
+import { term } from '@app/terms'
+
+const zhT = (s: string) => term('zh', s)
+const enT = (s: string) => term('en', s)
 
 interface Harmonize {
   en: string
@@ -25,11 +29,11 @@ export function harmonizationNotes(cards: DatasetCard[]): Harmonize[] {
   const rot = uniq((c) => c.rotationReprs.join('+')).filter(Boolean)
   if (rot.length > 1) out.push({ en: `Rotation representations differ (${rot.join(' | ')}): map everything to one (e.g. 6D) for learning.`, zh: `旋转表示不同（${rot.join(' | ')}）：训练时建议统一映射到同一种（如 6D）。` })
   const space = uniq((c) => c.actionSpace)
-  if (space.length > 1) out.push({ en: `Action spaces differ (${space.join(' | ')}): need per-embodiment action heads or a shared EEF space.`, zh: `动作空间不同（${space.join(' | ')}）：需要按本体区分的动作头或统一到末端空间。` })
+  if (space.length > 1) out.push({ en: `Action spaces differ (${space.map(enT).join(' | ')}): need per-embodiment action heads or a shared EEF space.`, zh: `动作空间不同（${space.map(zhT).join(' | ')}）：需要按本体区分的动作头或统一到末端空间。` })
   const types = uniq((c) => c.actionType)
-  if (types.length > 1) out.push({ en: `Absolute vs delta/velocity actions are mixed (${types.join(' | ')}).`, zh: `绝对与增量/速度动作混用（${types.join(' | ')}）。` })
+  if (types.length > 1) out.push({ en: `Absolute vs delta/velocity actions are mixed (${types.map(enT).join(' | ')}).`, zh: `绝对与增量/速度动作混用（${types.map(zhT).join(' | ')}）。` })
   const grip = uniq((c) => c.gripperPolarity).filter((x) => x !== '—')
-  if (grip.length > 1) out.push({ en: `Gripper polarity / scale differs (${grip.join(' | ')}): normalise to 0 = closed … 1 = open.`, zh: `夹爪极性/量程不同（${grip.join(' | ')}）：建议统一归一化为 0 = 闭合 … 1 = 张开。` })
+  if (grip.length > 1) out.push({ en: `Gripper polarity / scale differs (${grip.map(enT).join(' | ')}): normalise to 0 = closed … 1 = open.`, zh: `夹爪极性/量程不同（${grip.map(zhT).join(' | ')}）：建议统一归一化为 0 = 闭合 … 1 = 张开。` })
   const units = uniq((c) => `${c.lengthUnits}/${c.angleUnits}`)
   if (units.length > 1) out.push({ en: `Units differ (${units.join(' | ')}).`, zh: `单位不同（${units.join(' | ')}）。` })
   const frames = uniq((c) => c.referenceFrames.join(','))
@@ -39,7 +43,7 @@ export function harmonizationNotes(cards: DatasetCard[]): Harmonize[] {
   const res = uniq((c) => c.cameras.map((x) => x.resolution).join(','))
   if (res.length > 1) out.push({ en: 'Image resolutions / aspect ratios differ: check resizing and padding policy.', zh: '图像分辨率 / 宽高比不同：需确认缩放与填充策略。' })
   const emb = uniq((c) => c.embodiment)
-  if (emb.length > 1) out.push({ en: `Embodiments differ (${emb.join(', ')}).`, zh: `本体类型不同（${emb.join('、')}）。` })
+  if (emb.length > 1) out.push({ en: `Embodiments differ (${emb.map(enT).join(', ')}).`, zh: `本体类型不同（${emb.map(zhT).join('、')}）。` })
   const ann = uniq((c) => c.annotation.levels.includes('subtask_segments'))
   if (ann.length > 1) out.push({ en: 'Only some datasets have subtask annotations: hierarchical policies need consistent labels (use AI lab to fill the gap).', zh: '只有部分数据集具有子任务标注：分层策略需要一致的标注（可用 AI 标注补齐）。' })
   return out
