@@ -3,6 +3,9 @@
 **在训练之前，真正看懂你的具身数据。**
 EmbodiScope 是一个运行在浏览器中的具身智能数据检测、质量控制、对比与标注平台，支持 [LeRobot](https://github.com/huggingface/lerobot) v2.0 / v2.1 / v3.0 格式。所有计算都在本地浏览器完成，数据不会离开你的电脑。
 
+**▶ 在线使用：<https://zhirui-gao.github.io/EmbodiScope/>** —— 打开网页后选择本地文件夹（或 Hugging Face 仓库）即可，数据不会上传。
+离线使用：从 [最新 Release](https://github.com/zhirui-gao/EmbodiScope/releases/latest) 下载 `embodiscope.html`，双击打开。
+
 [English →](README.md)
 
 ## 为什么需要它

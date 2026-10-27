@@ -3,6 +3,9 @@
 **Understand your robot-learning data before you train on it.**
 EmbodiScope is a browser-based inspection, quality-control, comparison and annotation platform for embodied-AI datasets in the [LeRobot](https://github.com/huggingface/lerobot) format (v2.0 / v2.1 / v3.0). Everything runs locally in your browser — datasets never leave your machine.
 
+**▶ Use it online: <https://zhirui-gao.github.io/EmbodiScope/>** — open the page, pick a local folder (or a Hugging Face repo); nothing is uploaded.
+Offline: download `embodiscope.html` from the [latest release](https://github.com/zhirui-gao/EmbodiScope/releases/latest) and double-click it.
+
 [中文说明 →](README.zh-CN.md)
 
 ## Why
